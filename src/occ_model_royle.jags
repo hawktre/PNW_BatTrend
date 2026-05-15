@@ -1,0 +1,51 @@
+model {
+  # Priors
+  ## Dynamics Parameters
+  for (t in 1:(n_years-1)){
+    phi[t]   ~ dnorm(0, 0.1)    # survival
+    gamma[t] ~ dnorm(0, 0.1)    # colonization
+  }
+
+  ## Occurrence-level Parameters
+  alpha01 ~ dnorm(0, 0.1)       # year 1 occupancy intercept
+  for (n in 1:n_xcovs){
+    alphas[n] ~ dnorm(0, 0.1)   # occupancy covariate coefficients
+  }
+
+  ## Detection-level Parameters
+  for (n in 1:n_pcovs){
+    betas[n] ~ dnorm(0, 0.1)    # detection covariate coefficients (intercept + covariates)
+  }
+
+  # Occurrence submodel
+  ## Year 1: occupancy from intercept + covariates
+  logit_psi[1:n_sites, 1] <- alpha01 + xmat %*% alphas
+
+  ## Years 2+: gamma as colonization intercept + covariates + survival term added later
+  for (t in 1:(n_years-1)){
+    logit_psi[1:n_sites, t+1] <- gamma[t] + xmat %*% alphas
+  }
+
+  # Ecological and observation submodel
+  for (i in 1:n_sites){
+
+    # Year 1
+    psi[i, 1] <- ilogit(logit_psi[i, 1])
+    z[i, 1]   ~ dbern(psi[i, 1])
+
+    for (j in 1:n_visits[i, 1]){
+      dets[i, j, 1] ~ dbern(z[i, 1] * ilogit(inprod(pmat[i, j, 1, ], betas)))
+    }
+
+    # Years 2 to n_years
+    for (t in 2:n_years){
+      # Survival term phi[t-1] * z[i,t-1] added to logit_psi on logit scale
+      psi[i, t] <- ilogit(logit_psi[i, t] + z[i, t-1] * phi[t-1])
+      z[i, t]   ~ dbern(psi[i, t])
+
+      for (j in 1:n_visits[i, t]){
+        dets[i, j, t] ~ dbern(z[i, t] * ilogit(inprod(pmat[i, j, t, ], betas)))
+      }
+    }
+  }
+}
