@@ -95,14 +95,14 @@ run_step "src/09_stPGocc.R" \
 # --- Summarization Phase ---
 
 # Step 11: Summarize spOccupancy
-run_step "src/11_summarise_spOcc.R" \
+run_step "src/10_summarise_spOcc.R" \
     "Summarizing and visualizing spOccupancy model results" \
-    "Rscript src/11_summarise_spOcc.R"
+    "Rscript src/10_summarise_spOcc.R"
 
 # Step 10: Method Comparisons
-run_step "src/10_MethodComparisons.R" \
+run_step "src/11_MethodComparisons.R" \
     "Comparing results from different modeling approaches and generating final figures" \
-    "Rscript src/10_MethodComparisons.R"
+    "Rscript src/11_MethodComparisons.R"
 
 echo "===================================================="
 echo -e "${GREEN}Pipeline completed successfully!${NC}"
