@@ -41,18 +41,6 @@ run_step "src/01_DeploymentsCleaning.R" \
     "Cleaning deployment records and calculating site metrics" \
     "Rscript src/01_DeploymentsCleaning.R"
 
-# Step 1a: Get Daymet (Python)
-# Use the virtual environment python if it exists, otherwise fall back to system python3
-PYTHON_CMD="python3"
-if [ -f ".venv/bin/python" ]; then
-    PYTHON_CMD=".venv/bin/python"
-elif [ -f ".venv/bin/python3" ]; then
-    PYTHON_CMD=".venv/bin/python3"
-fi
-
-run_step "src/01a_get_daymet.py" \
-    "Downloading Daymet climate data for surveyed sites" \
-    "$PYTHON_CMD src/01a_get_daymet.py"
 
 # Step 2: Compile Spatial Covariates
 run_step "src/02_CompileSpatialCovariates.R" \
@@ -64,45 +52,29 @@ run_step "src/03_DetectionsCleaning.R" \
     "Formatting species detection data for occupancy modeling" \
     "Rscript src/03_DetectionsCleaning.R"
 
-# Step 4: Detection Model Prep
-run_step "src/04_detections_modprep.R" \
-    "Joining detections with climate data and preparing temporal replicates" \
-    "Rscript src/04_detections_modprep.R"
+# Step 4: Get Daymet (Python)
+run_step "src/04_get_daymet.py" \
+    "Downloading Daymet climate data for surveyed sites via pydaymet" \
+    ".venv/bin/python src/04_get_daymet.py"
 
-# Step 5: Occurrence Model Prep
-run_step "src/05_occurrence_modprep.R" \
+# Step 5: Detection Model Prep
+run_step "src/05_detections_modprep.R" \
+    "Joining detections with climate data and preparing temporal replicates" \
+    "Rscript src/05_detections_modprep.R"
+
+# Step 6: Occurrence Model Prep
+run_step "src/06_occurrence_modprep.R" \
     "Finalizing grid-level covariate preparation for modeling" \
-    "Rscript src/05_occurrence_modprep.R"
+    "Rscript src/06_occurrence_modprep.R"
 
 # --- Modeling Phase ---
 # These steps are computationally intensive and may take significant time.
 
 # Step 7: JAGS Modeling
-run_step "src/07_jagsMod.R" \
-    "Running occupancy models using JAGS" \
-    "Rscript src/07_jagsMod.R"
+# run_step "src/07_jagsMod.R" \
+#     "Running occupancy models using JAGS" \
+#     "Rscript src/07_jagsMod.R"
 
-# Step 8: tPGOcc Modeling
-run_step "src/08_tPGOcc.R" \
-    "Running multi-season occupancy models using spOccupancy (non-spatial)" \
-    "Rscript src/08_tPGOcc.R"
-
-# Step 9: stPGOcc Modeling
-run_step "src/09_stPGocc.R" \
-    "Running spatial-temporal occupancy models using spOccupancy" \
-    "Rscript src/09_stPGocc.R"
-
-# --- Summarization Phase ---
-
-# Step 11: Summarize spOccupancy
-run_step "src/10_summarise_spOcc.R" \
-    "Summarizing and visualizing spOccupancy model results" \
-    "Rscript src/10_summarise_spOcc.R"
-
-# Step 10: Method Comparisons
-run_step "src/11_MethodComparisons.R" \
-    "Comparing results from different modeling approaches and generating final figures" \
-    "Rscript src/11_MethodComparisons.R"
 
 echo "===================================================="
 echo -e "${GREEN}Pipeline completed successfully!${NC}"

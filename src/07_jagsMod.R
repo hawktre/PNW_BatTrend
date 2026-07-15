@@ -10,20 +10,15 @@
 library(tidyverse)
 library(here)
 library(sf)
+library(janitor)
 library(rjags)
 library(jagsUI)
 
 # Load Data ---------------------------------------------------------------
-covars <- readRDS(here("data/processed/occurrence/nw_grid.rds")) %>%
-  rename(cliff_cover = cliff_canyon)
-dets <- readRDS(here("data/processed/detections/nw_nights.rds")) %>%
-  rename(tmin = tmin_degrees_c, vp = vp_pa, dayl = dayl_s) %>%
-  left_join(select(covars, sample_unit_id, state), by = "sample_unit_id") %>%
-  rename(state = state.y) %>%
-  select(-state.x)
+covars <- readRDS(here("data/processed/occurrence/nw_grid.rds")) 
+dets <- readRDS(here("data/processed/detections/nw_nights.rds")) 
 
 # Species to model --------------------------------------------------------
-# 14 bat species detected in the Pacific Northwest monitoring program
 possible_bats <- c(
   "laci",
   "lano",
@@ -47,16 +42,16 @@ cliff_spp <- c("anpa", "euma", "myci", "pahe")
 # Prepare Occurrence Covariates -------------------------------------------
 
 ## Drop geometry and transform/scale occupancy covariates
-## log(p_forest + 1) and log(cliff_cover * 100 + 1) to address right skew
-## All continuous covariates scaled to mean 0, SD 1
 covars_join <- covars %>%
   select(-c(lat, long, riverlake)) %>%
+  rename(cliff_cover = cliff_canyon) |> 
   mutate(
     p_forest = log(p_forest + 1),
     cliff_cover = log(cliff_cover * 100 + 1),
     across(karst:cliff_cover, ~ scale(.x)[, 1])
   ) %>%
-  st_drop_geometry()
+  st_drop_geometry() |> 
+  clean_names()
 
 # Prepare Detection Data --------------------------------------------------
 
@@ -92,7 +87,7 @@ dets_long <- dets %>%
   arrange(spp, year, sample_unit_id, replicate_id) %>%
   mutate(across(1:4, as.factor))
 
-## Create 4D detection array: dim(spp, sample_unit_id, replicate, year)
+## Create detection array: dim(spp, sample_unit_id, replicate, year)
 y <- tapply(
   dets_long$occ,
   select(dets_long, spp, sample_unit_id, replicate_id, year),
@@ -135,30 +130,24 @@ for (i in seq_along(site_ids)) {
 # Build Occupancy Design Matrices -----------------------------------------
 
 ## Separate sampled and unsampled cells for model fitting vs prediction
-nw_grida <- covars %>% filter(samp_all == 1) %>% arrange(sample_unit_id)
-nw_gridb <- covars %>% filter(samp_all == 0) %>% arrange(sample_unit_id)
+nw_grida <- covars_join %>% filter(samp_all == 1) %>% arrange(sample_unit_id)
+nw_gridb <- covars_join %>% filter(samp_all == 0) %>% arrange(sample_unit_id)
 
 ## Recombine with sampled cells first for consistent indexing
 nw_grid_all <- rbind(nw_grida, nw_gridb)
 
 ## Standard occupancy design matrix: log forest cover, precip, max elevation
-## No intercept - alpha01 is estimated separately in the JAGS model
 ## Scaled across all cells (sampled + unsampled) for consistent prediction
 xmat_all <- nw_grid_all %>%
-  st_drop_geometry() %>%
-  mutate(log_fc = log(p_forest + 1)) %>%
+  rename(log_fc = p_forest) %>%
   select(log_fc, precip, dem_max) %>%
-  scale()
+  as.matrix()
 
 ## Cliff species occupancy design matrix: adds log cliff cover
 xmat_cliff <- nw_grid_all %>%
-  st_drop_geometry() %>%
-  mutate(
-    log_fc = log(p_forest + 1),
-    log_cliff = log(cliff_cover * 100 + 1)
-  ) %>%
+  rename(log_fc = p_forest, log_cliff = cliff_cover) %>%
   select(log_fc, precip, dem_max, log_cliff) %>%
-  scale()
+  as.matrix()
 
 ## Subset to sampled cells for model fitting
 xmata <- xmat_all[which(nw_grid_all$samp_all == 1), ] # standard species, sampled
@@ -183,6 +172,119 @@ n_visits_jags <- dets %>%
   select(-sample_unit_id) %>%
   simplify2array()
 
+# Prior Configuration -----------------------------------------------------
+# Set PRIOR_TYPE to "weakly_informative" (default) or "informative".
+# If "informative", specify the path to your CSV file of priors.
+PRIOR_TYPE <- "weakly_informative" # Options: "weakly_informative", "informative"
+PRIORS_FILE <- "data/raw/Posteriors-for-UpdatingPriors-BatModels.csv" 
+
+# Prior Helpers -----------------------------------------------------------
+get_vague_priors <- function(n_years, n_xcovs, n_pcovs) {
+  list(
+    mu_phi = rep(0, n_years - 1),
+    tau_phi = rep(0.1, n_years - 1),
+    mu_gamma = rep(0, n_years - 1),
+    tau_gamma = rep(0.1, n_years - 1),
+    mu_alpha01 = 0,
+    tau_alpha01 = 0.1,
+    mu_alphas = rep(0, n_xcovs),
+    tau_alphas = rep(0.1, n_xcovs),
+    mu_betas = rep(0, n_pcovs),
+    tau_betas = rep(0.1, n_pcovs)
+  )
+}
+
+load_informative_priors <- function(file_path, species_name, n_years, n_xcovs, n_pcovs) {
+  # Default to weakly informative
+  priors <- get_vague_priors(n_years, n_xcovs, n_pcovs)
+  
+  if (!file.exists(file_path)) {
+    warning(sprintf("Informative priors file '%s' not found. Falling back to weakly informative priors for species '%s'.", file_path, species_name))
+    return(priors)
+  }
+  
+  df <- tryCatch({
+    read.csv(file_path, header = TRUE, stringsAsFactors = FALSE)
+  }, error = function(e) {
+    warning(sprintf("Error reading priors file '%s': %s. Falling back to weakly informative priors.", file_path, e$message))
+    NULL
+  })
+  
+  if (is.null(df) || nrow(df) == 0) return(priors)
+  
+  # Standardize species name to match uppercase Spp column (e.g., "myev" -> "MYEV")
+  spp_upper <- toupper(species_name)
+  row_idx <- which(toupper(df$Spp) == spp_upper)
+  
+  if (length(row_idx) == 0) {
+    warning(sprintf("No priors found for species '%s' (searched for '%s') in '%s'. Falling back to weakly informative priors.", species_name, spp_upper, file_path))
+    return(priors)
+  }
+  
+  spp_data <- df[row_idx[1], ]
+  
+  # Helper to parse values safely, handling NA representation
+  get_val <- function(col_name) {
+    if (!col_name %in% colnames(spp_data)) {
+      return(NA)
+    }
+    val <- spp_data[[col_name]]
+    if (is.null(val) || is.na(val) || val == "NA" || val == "") {
+      return(NA)
+    }
+    return(as.numeric(val))
+  }
+  
+  # Helper to set mean and precision
+  # SD is converted to precision: precision = 1 / (SD^2)
+  set_prior <- function(mean_val, sd_val, default_mean = 0, default_prec = 0.1) {
+    if (is.na(mean_val) || is.na(sd_val) || sd_val <= 0) {
+      list(mean = default_mean, prec = default_prec)
+    } else {
+      list(mean = mean_val, prec = 1 / (sd_val^2))
+    }
+  }
+  
+  # 1. Intercept (alpha01)
+  p_intercept <- set_prior(get_val("Intercept"), get_val("InterceptSD"))
+  priors$mu_alpha01 <- p_intercept$mean
+  priors$tau_alpha01 <- p_intercept$prec
+  
+  # 2. Gamma (colonization)
+  p_gamma <- set_prior(get_val("Gamma"), get_val("GammaSD"))
+  priors$mu_gamma <- rep(p_gamma$mean, n_years - 1)
+  priors$tau_gamma <- rep(p_gamma$prec, n_years - 1)
+  
+  # 3. Phi (persistence)
+  p_phi <- set_prior(get_val("Phi"), get_val("PhiSD"))
+  priors$mu_phi <- rep(p_phi$mean, n_years - 1)
+  priors$tau_phi <- rep(p_phi$prec, n_years - 1)
+  
+  # 4. Forest (alphas[1])
+  p_forest <- set_prior(get_val("Forest"), get_val("ForestSD"))
+  priors$mu_alphas[1] <- p_forest$mean
+  priors$tau_alphas[1] <- p_forest$prec
+  
+  # 5. Precip (alphas[2])
+  p_precip <- set_prior(get_val("Precip"), get_val("PrecipSD"))
+  priors$mu_alphas[2] <- p_precip$mean
+  priors$tau_alphas[2] <- p_precip$prec
+  
+  # 6. Elevation (alphas[3])
+  p_elev <- set_prior(get_val("Elevation"), get_val("ElevSD"))
+  priors$mu_alphas[3] <- p_elev$mean
+  priors$tau_alphas[3] <- p_elev$prec
+  
+  # 7. Cliffs (alphas[4]) - only if xmat has at least 4 columns (cliff-associated species)
+  if (n_xcovs >= 4) {
+    p_cliffs <- set_prior(get_val("Cliffs"), get_val("CliffsSD"))
+    priors$mu_alphas[4] <- p_cliffs$mean
+    priors$tau_alphas[4] <- p_cliffs$prec
+  }
+  
+  return(priors)
+}
+
 # Bundle Data for JAGS ----------------------------------------------------
 
 ## Build species-level list of data objects
@@ -191,21 +293,32 @@ occ_data <- list()
 
 for (i in possible_bats) {
   xmat_use <- if (i %in% cliff_spp) xmatc else xmata
+  n_xcovs <- ncol(xmat_use)
+  
+  # Load prior variables
+  priors <- if (PRIOR_TYPE == "informative") {
+    load_informative_priors(PRIORS_FILE, i, n_years, n_xcovs, n_pcovs)
+  } else {
+    get_vague_priors(n_years, n_xcovs, n_pcovs)
+  }
 
-  occ_data[[i]] <- list(
-    # Detection data
-    dets = y[i, , , ], # detection array: dim(cell, replicate, year)
-    pmat = pmat, # detection design matrix: dim(cell, replicate, year, n_pcovs)
-    n_pcovs = n_pcovs, # number of detection covariates
+  occ_data[[i]] <- c(
+    list(
+      # Detection data
+      dets = y[i, , , ], # detection array: dim(cell, replicate, year)
+      pmat = pmat, # detection design matrix: dim(cell, replicate, year, n_pcovs)
+      n_pcovs = n_pcovs, # number of detection covariates
 
-    # Occupancy data
-    xmat = xmat_use, # occupancy design matrix: dim(cell, n_xcovs)
-    n_xcovs = ncol(xmat_use), # number of occupancy covariates
+      # Occupancy data
+      xmat = xmat_use, # occupancy design matrix: dim(cell, n_xcovs)
+      n_xcovs = n_xcovs, # number of occupancy covariates
 
-    # Dimensions
-    n_sites = n_sites_total, # number of sampled cells
-    n_visits = n_visits_jags, # visit count matrix: dim(cell, year)
-    n_years = n_years # number of study years
+      # Dimensions
+      n_sites = n_sites_total, # number of sampled cells
+      n_visits = n_visits_jags, # visit count matrix: dim(cell, year)
+      n_years = n_years # number of study years
+    ),
+    priors # Append prior parameter vectors/values
   )
 }
 
@@ -248,7 +361,7 @@ max2 <- function(x) {
 
 # Fit Model for Each Species ----------------------------------------------
 
-for (i in seq_along(occ_data)) {
+for (i in 1:1) {
   tmp <- occ_data[[i]]
   cat("\nFitting model for:", names(occ_data)[i], "\n")
   cat("Start time:", format(Sys.time()), "\n")
@@ -278,7 +391,9 @@ for (i in seq_along(occ_data)) {
     here(paste0(
       "data/processed/results/jags/full/fits/",
       names(occ_data)[i],
-      "_jagsfit.rds"
+      "_jagsfit_",
+      PRIOR_TYPE,
+      ".rds"
     ))
   )
 

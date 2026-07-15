@@ -12,16 +12,18 @@ library(here)
 library(janitor)
 
 # Read in deloyment data and join with daymet  --------------------------------------------------
-deployment <- readRDS(here("data/processed/detections/deployments_to2024.rds"))
+deployment <- readRDS(here("data/processed/detections/deployments_to2025.rds"))
 
 # Read in detection data --------------------------------------------------
-## Read in
-acoustics_to_2024 <- data.table::fread(here("data/raw/tables/calls_to_2024.csv"))
-acoustics_from_2024 <- data.table::fread(here(
-  "data/raw/tables/calls_from_2024.csv"
-))
-
-all_raw_acoustics <- bind_rows(acoustics_to_2024, acoustics_from_2024)
+## Read in all matching calls files dynamically
+calls_files <- list.files(path = here("data/raw/tables"), pattern = "^calls_.*\\.csv$", full.names = TRUE)
+all_raw_acoustics <- map_df(calls_files, function(f) {
+  df <- data.table::fread(f, select = c("DeploymentID", "Night", "ManualIDSpp1"))
+  df$DeploymentID <- as.integer(df$DeploymentID)
+  df$Night <- as.character(df$Night)
+  df$ManualIDSpp1 <- as.character(df$ManualIDSpp1)
+  df
+})
 
 ## Clean up
 acoustics <- all_raw_acoustics %>%

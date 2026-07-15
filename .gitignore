@@ -77,3 +77,7 @@ data/**/*
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Credentials
+.env
+
