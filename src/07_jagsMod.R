@@ -376,7 +376,7 @@ for (i in 1:1) {
   occ_jags <- jagsUI::jags(
     data = tmp,
     inits = inits,
-    parameters.to.save = c("alpha01", "alphas", "betas", "phi", "gamma", "psi"),
+    parameters.to.save = c("alpha01", "alphas", "betas", "phi", "gamma", "psi", "dets_rep"),
     model.file = here("src/occ_model_royle.jags"),
     n.chains = 4,
     n.iter = 15000,

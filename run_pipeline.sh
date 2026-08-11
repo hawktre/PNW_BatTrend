@@ -75,7 +75,16 @@ run_step "src/06_occurrence_modprep.R" \
 #     "Running occupancy models using JAGS" \
 #     "Rscript src/07_jagsMod.R"
 
+# Step 8: JAGS Diagnostics
+if [ -d "data/processed/results/jags/full/fits" ] && [ "$(find data/processed/results/jags/full/fits -maxdepth 1 -name '*_jagsfit_*.rds' | wc -l)" -gt 0 ]; then
+    run_step "src/08_jagsDiagnostics.R" \
+        "Computing convergence diagnostics and generating diagnostic plots" \
+        "Rscript src/08_jagsDiagnostics.R"
+else
+    echo -e "${GREEN}>>> Skipping: src/08_jagsDiagnostics.R (No JAGS fit files found)${NC}\n"
+fi
 
 echo "===================================================="
 echo -e "${GREEN}Pipeline completed successfully!${NC}"
 echo "===================================================="
+
