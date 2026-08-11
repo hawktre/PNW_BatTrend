@@ -77,8 +77,6 @@ deployment <- deployment %>%
   st_drop_geometry()
 
 # Correct  NAs and wrong values -----------------------------
-## Clutter Percent
-unique(deployment$ClutterPercent)
 
 deployment <- deployment %>%
   mutate(
@@ -88,18 +86,16 @@ deployment <- deployment %>%
       ClutterPercent == "1 to 25%" ~ "1",
       ClutterPercent == "26 to 50%" | ClutterPercent == "26-50" ~ "2",
       ClutterPercent == "<null>" ~ NA,
+      ClutterPercent == "" ~ NA,
       TRUE ~ ClutterPercent
     ))
   )
-sum(is.na(deployment$ClutterPercent))
 
 ## Clutter Type
-unique(deployment$ClutterType)
 deployment <- deployment %>%
   mutate(ClutterType = if_else(ClutterType == "<null>", NA, ClutterType))
 
 ## Water Bodies
-unique(deployment$WaterBodyType)
 ### Create Water Indicator
 deployment <- deployment %>%
   mutate(water_ind = if_else(WaterBodyType == "None", 0, 1))
@@ -164,14 +160,14 @@ deployment %>%
   labs(color = "State")
 
 # Save out for verification in excel --------------------------------------
-saveRDS(deployment, here("data/processed/detections/deployments_to2024.rds"))
+saveRDS(deployment, here("data/processed/detections/deployments_to2025.rds"))
 
 
-# Save out sites for daymet -----------------------------------------------
-daymet_sites <- deployment %>%
-  select(location_name, deployment_date, latitude, longitude) %>%
-  distinct() |>
-  rename("night" = deployment_date)
+# # Save out sites for daymet -----------------------------------------------
+# daymet_sites <- deployment %>%
+#   select(location_name, deployment_date, latitude, longitude) %>%
+#   distinct() |>
+#   rename("night" = deployment_date)
 
-## Save out for daymet
-write_csv(daymet_sites, here("data/raw/covariates/daymet/daymet_sites.csv"))
+# ## Save out for daymet
+# write_csv(daymet_sites, here("data/raw/covariates/daymet/daymet_sites.csv"))
