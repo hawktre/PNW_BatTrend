@@ -1,0 +1,719 @@
+---
+title: "Occupancy Assessment for Bats of the Pacific Northwest"
+subtitle: "Statistical Explanation and Results"
+author:   
+  - name: Trent VanHawkins
+    affiliation: Oregon State University
+    corresponding: true
+  - name: Beth Ward
+    affiliation: Oregon State University-Cascades
+  - name: Tom Rodhouse
+    affiliation: National Park Service
+    degrees: PhD
+  - name: Sara Rose
+    affiliation: Oregon State University-Cascades
+  - name: Nadja Schmidt
+    affiliation: Oregon State University-Cascades
+  - name: Laura McMahon
+    affiliation: Oregon State University-Cascades
+  - name: Corinne Dombrowski
+    affiliation: Oregon State University-Cascades
+format: 
+  pdf:
+    geometry: 
+        - "left=0.75in"
+        - "right = 0.75in"
+        - "bottom = 1in"
+        - "top = 1in"
+    mathspec: true
+    header-includes: 
+      - \usepackage{fancyhdr, amsthm, amssymb,amsfonts,amsthm, amsmath, bbm, tikz, xcolor, colortbl}
+      - \usepackage{float, tabularx}
+      - \usetikzlibrary{positioning, arrows.meta} 
+      - \floatplacement{table}{H}
+      - \pagestyle{fancy}
+      - \fancyhead[R]{Northwest Bat Hub}
+      - \fancyhead[L]{Trend Analysis}
+      - \fancyfoot[C]{\thepage} # Center page number at bottom of each page
+number-sections: true
+echo: false
+message: false
+error: false
+warning: false
+page-layout: full
+bibliography: references.bib
+---
+
+# Introduction
+
+This purpose of this report is to document an occupancy trend analysis for bat species of the Pacific Northwest. Previously, the Northwestern Bat Hub for Population Monitoring and Research (NW Bat Hub) and its partners have documented evidence of a region-wide decline for Hoary Bats between 2016 and 2018 [@rodhouse2019]. Since publication of this research, the bat hub has continued population research and monitoring under North American Bat Program (NABat) summer-monitoring protocols and has since grown to include surveys in all of Oregon, Washington, and Idaho. Here, we present the methods and results of an updated analysis including data from 2016-2025 for all of the NABat sample units encompassed by Oregon, Washington, and Idaho.
+
+# Methods
+
+Methods for the current study are similar to those published in @rodhouse2019, with the exception of some minor deviations in the statistical analysis. Here, we provide a brief overview of NABat methodology as it pretains to the statistical analysis, but note that the NABat summer sampling design and its explanation are well-documented in the literature [@reichert2021; @rodhouse2017; @rodhouse2019; @udell_status_2022].
+
+## Data Collection
+
+Briefly, NABat utilizes the Generalized Random Tessellation Stratified (GRTS) sampling design to ensure a "spatially balanced" random sample [@stevens2004]. From it's outset, the NABat grid employed what they call a "Master Sample", in which they covered the Continental U.S. in a grid of uniform $10 \ km^2$ cells (hereto referred to as "sample units", "grid cells", or simply "cells"). They then use GRTS to assign sampling priority to each of these cells. The advantage is that, when adhering to the GRTS priority, this approach minimizes the spatial clustering of samples which would otherwise induce residual spatial autocorrelation, and any contiguous spatial subset of the sample inherits the same property.
+
+The current monitoring protocol utilized by the NW Bat Hub calls for one night of acoustic monitoring at each of four spatial replicates within a cell during the summer season. Ideally, each of the spatial replicates are distributed to one of the inter-cardinal $5 \ km^2$ quadrants (NE, NW, SE, SW) of a cell, but when this is not possible multiple detectors may be deployed in a single quadrant at a minimum distance of $1 \ km$ from one another. The current modeling strategy is also flexible to \>4 spatial replicates, but is not required.
+
+There are 15 bat species common to the three-state region of Oregon, Washington, and Idaho, 14 of which were the target of this analysis (@tbl-spec). The Mexican Free-tailed Bat (*Tadarida brasiliensis*) was excluded due to its limited range within the region.
+
+::: {#tbl-spec}
+\begin{table}
+    \centering
+    \large
+    \begin{tabular}{llc}
+        \hline
+        \textbf{Common Name} & \textbf{Scientific Name} & \textbf{Code} \\ \hline
+        Pallid Bat & \textit{Antrozous pallidus} & anpa \\
+        Townsend's Big-eared Bat & \textit{Corynorhinus townsendii} & coto \\
+        Big Brown Bat & \textit{Eptesicus fuscus} & epfu \\
+        Spotted Bat & \textit{Euderma maculatum} & euma \\
+        Silver-haired Bat & \textit{Lasionycteris noctivagans} & lano \\
+        Hoary Bat & \textit{Lasiurus cinereus} & laci \\
+        California Myotis & \textit{Myotis californicus} & myca \\
+        Western Small-footed Myotis & \textit{Myotis ciliolabrum} & myci \\
+        Long-eared Myotis & \textit{Myotis evotis} & myev \\
+        Little Brown Bat & \textit{Myotis lucifugus} & mylu \\
+        Fringed Myotis & \textit{Myotis thysanodes} & myth \\
+        Long-legged Myotis & \textit{Myotis volans} & myvo \\
+        Yuma Myotis & \textit{Myotis yumanensis} & myyu \\
+        Canyon Bat & \textit{Parastrellus hesperus} & pahe \\ \hline
+    \end{tabular}
+\end{table}
+
+Bat species of Oregon, Washington, and Idaho included in the analysis.
+:::
+
+After collection, call files were 'scrubbed' to determine which contained echolocation calls and auto-classified to the species level by Sonobat v4.?.? before being manually vetted by domain experts. Vetted acoustics were then used to determine site-level detection histories (e.g. present or absent) for each of the 14 species.
+
+## The Data
+
+Species' detection histories and replicate-level site characteristics were queried from the NW Bat Hub's NABat database and included all surveys conducted up to the time of this report (2016-2025). In instances where detectors were deployed for \>1 night within a site and year, only the first night was subset for analysis. Site-level covariates capturing static environmental heterogeneity were gathered from the attributed NABat master sample, and from the LANDFIRE dataset to assess cliff and canyon coverage across the region [@helen_t_davis_north_2025; @brian_l_tolk_landfire_2022].
+
+
+:::{#tbl-covars}
+\begin{table}
+        \centering
+        \begin{tabularx}{\textwidth}{l|l}
+            \multicolumn{2}{c}{\textit{(a) Environmental covariates included in the occupancy sub-model.}} \\ 
+            \hline
+            \textbf{Name} & \textbf{Description} \\ \hline
+            Forest Cover (\%) & Percentage of the sample unit that classified as forest cover (NLCD) \\ \hline
+            Precipitation (mm) & Mean annual precipitation (WorldClim) \\ \hline
+            Elevation (m) & Maximum Elevation (DEM) \\ \hline
+            Cliff Cover (\%) & Percentage of the sample unit classified as cliff cover (LandFire) \\ \hline
+            \\
+            \multicolumn{2}{c}{\textit{(b) Environmental covariates included in the detection sub-model.}} \\ \hline
+            \textbf{Name} & \textbf{Description} \\ \hline
+            Minimum Temperature & Minimum temperature ($^{\circ}$C) on the night of detector deployment \\ \hline
+            Day Length & Day length (previous day) on the night of deployment \\ \hline
+            Clutter (\%) & Categorical clutter ($0 = 0\%$; $1 = 1\text{--}25\%$; $2 = 26\text{--}50\%$; $3 = 51\text{--}75\%$; $4 = 76\text{--}100\%$) \\ \hline
+            Waterbody & Presence of a waterbody at deployment site ($1 = \text{yes}$; $0 = \text{no}$) \\ \hline
+        \end{tabularx}
+    \end{table}
+
+Covariate information used for this analysis. Occupancy covariates vary across space, but are assumed to be static in time. Detection covariates vary across site, replicate, and time period. 
+:::
+
+## Statistical Analysis
+
+We used the autologistic parameterizaiton of the Dynamic Occupancy (dynocc) model as described by @rodhouse2019 to estimate latent occupancy of 14 bat species (@tbl-spec) across the three state region of Oregon, Washington, and Idaho between 2016 and 2025. Generally speaking, occupancy models aim to estimate latent occupancy states (presence or absence) across the study area. Letting sites ($10 \ km^2$ grid-cells) be indexed by $i = 1, \ldots, N$, we define the binary latent occupancy state as $Z_i \in \{0,1\}$ with probability of occupancy $P(Z_i = 1) = \psi_i$. That is,
+
+$$
+Z_i \sim \text{Bernoulli}(\psi_i).
+$$
+
+However, we observe the latent occupancy state through an imperfect detection process prone to false-negatives. Letting the spatial replicates be indexed $j = 1, \ldots, k_i$, we define the observation process as $Y_{ij} \in \{0,1\}$ with probability of successful detection $P(Y_{ij} = 1) = p_{ij}$. Conditional on the latent occuapancy state, we observe 
+
+$$
+Y_{ij} \mid Z_{i} \sim \text{Bernoulli}(z_ip_{ij}).
+$$
+
+The Dynamic Occupancy (dynocc) extends this framework to capture transitions in sites' latent occupancy state over $t = 1, \ldots, T$ primary survey periods (i.e. summer monitoring seasons) by estimating additional parameters for the probabilities that a site either remains occupied from one year to the next (persistence) or becomes newly occupied (colonization) [@kery2021]. The probability of persistence is typically defined as $P(Z_{it} = 1 \mid Z_{it-1} = 1) = \phi$, and the probability of colonization $P(Z_{it} = 1 \mid Z_{it-1} = 0) = \gamma$. It is then assumed that occupancy dynamics follow a first-order Markov process so that 
+
+$$
+Z_{it} | Z_{it-1} \sim \text{Bernoulli}(Z_{it-1} \phi + (1 - Z_{it-1}) \gamma) \quad \text{for} \ t \geq 2
+$$
+
+The notation above suggests that persistence and colonization are static across space and time. Ecological intuition suggests that this is unlikely, and that it is better to model $\phi_{it}$ and $\gamma_{it}$ with covariate information that vary across time, space or both. We write the full hierarchical structure of the autologistic parameterization of the dynamic occupancy model as 
+
+$$
+\begin{split}
+Z_{i1} &\sim \mathrm{Bernoulli}(\psi_{i1}) \\
+\text{logit}(\psi_{i1}) &= \alpha_0 + X_i\alpha \\
+\text{logit}(\psi_{i,t}) &= a_t + b_t z_{i,t-1} + X_i\alpha \quad \text{for }  t\geq2\\ 
+Y_{ijt} \mid Z_{it} &\sim \mathrm{Bernoulli}(Z_{it} p_{ijt}) \\
+\mathrm{logit}(p_{ijt}) &= \beta_0 + V_{ijt}\beta 
+\end{split}
+$$
+
+Definitions and interpretations for all variables and parameters are given in @tbl-model-params. Covariates used for for Occupancy ($\alpha$) and Detection ($\beta$) are given in @tbl-covars. This reparameterization gives some additional assumptions and conveniences. The first is that the this model has the convenient interpretation $\text{logit}^{-1}(a_t) = \gamma_t$ and $\text{logit}^{-1}(a_t + b_t) = \phi_t$. That is, when $X_i$ is centered and standardized, we get $\gamma_t$ and $\phi_t$ are interpreted, respectively, as the regional estimates for colonization and survival, holding environmental covariates at their mean. The implied assumption of this model is that static environmental covariates used to model occupancy in year 1 drive colonization and survival in the same direction and magnitude in years $t = 2, \ldots, T$. 
+
+:::{#tbl-model-params}
+\begin{table}
+    \centering
+    \small
+    \renewcommand{\arraystretch}{1.3}
+    \begin{tabular}{p{0.15\linewidth} p{0.8\linewidth}}
+        \hline
+        \textbf{Term} & \textbf{Interpretation} \\ \hline
+        
+        \multicolumn{2}{l}{\textbf{Vital Rates / Probabilities}} \\ \hline
+        $\psi_{i1}$ & Initial occupancy probability at time $t=1$. \\
+        $\gamma_{it}$ & Colonization probability: chance an unoccupied site becomes occupied. \\
+        $\phi_{it}$ & Survival/Persistence probability: chance an occupied site remains occupied. \\
+        $p_{ijt}$ & Detection probability: chance of detecting the species, given it is present. \\ \hline
+        
+        \multicolumn{2}{l}{\textbf{Regression Coefficients}} \\ \hline
+        $\alpha_0$ & Global intercept for initial occupancy probability. \\
+        $a_t$ & Time-varying intercept for colonization probability. \\
+        $b_t$ & Additive offset for survival probability relative to $a_t$ on the logit scale. \\
+        $\alpha$ & Coefficients for site-level covariates affecting occupancy dynamics. \\
+        $\beta_0$ & Global intercept for detection probability. \\
+        $\beta$ & Coefficients for observation-level covariates affecting detection. \\ \hline
+    \end{tabular}
+\end{table}
+
+Description of variables and parameters in the dynamic occupancy model.
+:::
+
+Hierarchical bayesian models were fit independently for each species, using the No-U-Turns (NUTS) Himiltonian Monte-Carlo (HMC) sampler available in the Stan programming language using the `cmdstanr` package [@carpenter_stan_2017; @cmdstanr]. Stan does not allow for direct sampling from the discrete latent states $Z_i$, as is common practice for Gibbs samplers. Instead, the latent states a marginalized out using the "forward algorithm". Please see @sec-dynocc for a detailed derivation of the dynocc model as a hidden markov model [@leos-barajas_introduction_2018]. All models were fit using  for 2,000 draws from four chains, discarding the first 1,000 draws and resulting in 4,000 draws from the posterior with no thinning. Convergence was defined by $\hat{R} < 1.01$ for all parameters and an Effective Sample Size (ESS) $>10\%$ of the total number of samples. Posterior predictive checks were conducted visually to assess goodness-of-fit using tools from the `bayesplot` package [@gabry_visualization_2019]. All analyses were conducted in R version 4.5.3. 
+
+We conducted two distinct sensitivity assessments for our model. First, we assessed our model's sensitivity to prior information. In a "weakly informative" analysis, all parameters were specified to use Normal priors with mean $\mu = 0$ and standard deviation $\sigma = \sqrt{10}$. The "informative" analysis leveraged prior information from the original Oregon Bat Grid, for which annual summer surveys were conducted from 2003 to 2010 [@rodhouse_establishing_2015]. Informative priors are provided in @tbl-informative-priors. We also wished to test our models sensitivity to the inclusion and/or exclusion of sample units from Idaho. Summer monitoring protocols began in Idaho in 2020, four years into the summer monitoring protocol. The addition of Idaho to the study introduces substantial environmental heterogeneity that may not have been captured by surveys conducted only in Oregon and Washington. Thus, we fit another model for each species, excluding sample units from Idaho under weakly informative priors. 
+
+The overarching goal of this analysis was to assess trends in occupancy for each of the 14 species included in the analysis, some of which have never been previously published. To accomplish this, we first computed a regional occupancy trajectory for each species over the entire study area. For each MCMC iteration $h$, we compute
+
+$$
+\bar{\psi}_t^{(h)} = \sum_{i = 1}^N \psi_{it}^{(h)}
+$$
+
+Then, we computed the Ordinary Least Squares (OLS) solution for the best-fit line over the study duration as
+
+$$
+\bar{\psi}_{t}^{(h)} = \delta_0 + \delta * \text{year}
+$$
+Thus, our primary trend metric is $\hat{\delta}$, which can be interpreted as the average change in occupancy over one year across the study area. We note $\hat{\lambda} = \frac{\bar{\psi}_{T}}{\bar{\psi}_{1}}$ has been used as a common trend metric from previous studies [@rodhouse2019; @udell_status_2022]. $\hat{\lambda}$ may serve as a reasonble trend metric over short time periods, but could incorrectly lead to the conclusion of no trend in the event that $\bar{\psi}_1 \approx \bar{\psi}_T$, regardless of estimated occupancy in the intermediate years. $\hat{\delta}$ will be more robust to slight deviations from overall trend. We considered a species to have a decreasing trend in occupancy if the $97.5^{th}$ quantile of $\hat{\delta}$ was less than 0 ($\hat{\delta}_{97.5} < 0$). We reviewed Moran's I to ensure no unmodeled residual spatial autocorrelation using neighbors from 10-50km. 
+
+# Results
+
+From the beginning of the study in 2016, the sampling effort has grown to include almost 300 individual sample units across Oregon, Washington, and Idaho (@tbl-samples, @fig-sample). Washington was first included in 2018 and Idaho in 2020. There was a notable decrease in sampling effort in 2025. We expect that the decreased sample size will result in slightly wider credible intervals for regional occupancy probabilities. 
+
+```{r}
+#| label: tbl-samples
+#| tbl-cap: Sampling effort across the three-state region from 2016 to 2025.  
+
+library(tidyverse)
+library(sf)
+library(here)
+library(kableExtra)
+
+nw_grid <- readRDS(here("data/processed/occurrence/nw_grid.rds"))
+
+nw_grid |>
+  st_drop_geometry() |> 
+  select(sample_unit_id, state, starts_with("sample")) |>
+  pivot_longer(cols = -c(sample_unit_id, state)) |>
+  mutate(
+    year = parse_number(name)) |>
+  group_by(state, year) |> 
+  summarize(sampled = sum(value), .groups = "drop") |> 
+  pivot_wider(values_from = sampled, names_from = state) |> 
+  select(year, Oregon, Washington, Idaho) |> 
+  mutate(Total = Oregon + Washington + Idaho) |> 
+  rename(Year = year) |> 
+  knitr::kable(booktabs = TRUE)
+```
+
+To maintain comparison with @rodhouse2019 and to make use of informative priors, we used mean annual precipitation, maximum elevation, and forest cover (%) aggregated to the cell-level as evnironmental covariates for all species. For known cliff-roosting species (MYCI, ANPA, EUMA, PAHE), we included cliff cover (%) as an additional covariate. Cliff and forest cover covariates were offset by one and log-transformed. All covariates were centered and standardized to have zero-mean and unit standard devition to imrove MCMC sampling efficiency and convergence. 
+
+```{r}
+#| label: fig-covars
+#| fig-cap: Covariates plotted across across the study area. Warm colors indicate higher values. 
+#| fig-height: 4
+#| fig-width: 8
+
+nw_grid |> 
+  filter(precip >= 0) |> 
+  select(precip, cliff_canyon, dem_max, p_forest) |> 
+  rename("Prcipitation (mm)" = precip,
+  "Cliff/Canyon Cover (%)" = cliff_canyon,
+  "Max. Elevation (m)" = dem_max,
+  "Forest Cover (%)" = p_forest) |> 
+  plot(border = NA) 
+```
+
+## Model Fitting and Diagnostics
+
+All models converged with $\max{\hat{R}} < 1.01$ and sufficiently large ESS. Posterior predictive checks also showed adequate fit across all species and sensitivity analyses. Models for all species were generally robust to the specification of informative priors or the inclusion/exclusion of Idaho grid cells. Specifically, 95% credibile intervals largely overlapped for all estimated parameters and derived quantities ([Figures -@fig-occ-pars-summary; -@fig-phi-summary; -@fig-gamma-summary]). In many cases, informative priors gave slightly increased precision (narrower 95% intervals) in parameter estimates. Review of Moran's I showed no evidence of unmodeled residual spatial autocorrelation (@fig-moransI).
+
+### Occupancy, Persistence, and Colonization 
+
+Due to a large number of fitted models, it is impractical to individually interpret results. Instead, we give an overview of the direction of the effect of each covariate and species (@tbl-occ-covar-direction). Numerical posterior summaries of each effect can be found in @tbl-occ-res. Results are interpreted under informative priors unless otherwise stated. 
+
+```{r}
+#| label: tbl-occ-covar-direction
+#| tbl-cap: The direction of the relationship between the specified covariate and the probability of occupancy in year 1 ($\psi_1$), persistence ($\phi$), and colonization ($\gamma$). Positive (+) or negative (--) relationships are defined by 95% credible intervals that are above or below zero, respectively. '0' indicates a 95% credible interval which overlaps zero. 
+ 
+dynocc_coefs <- readRDS(here("data/processed/results/stan/diagnostics/all_res_stan.rds"))
+
+direction_matrix <- dynocc_coefs |> 
+  filter(var_type == "occurrence", prior_type == "informative") |> 
+  mutate(effect_symbol = case_when(
+    q2.5 > 0 ~ "+",
+    q97.5 < 0 ~ "--",
+    .default = "0" # Using 0 is mathematically clean, but you could use "None" or "" 
+  )) |> 
+  # Keep only what we need to pivot
+  select(variable, species, effect_symbol) |> 
+  # Pivot species to columns
+  pivot_wider(
+    names_from = species,
+    values_from = effect_symbol,
+    values_fill = "0" # Fills any missing covariate/species combos with 0
+  ) |> 
+  # Clean up the covariate names for the final render
+  mutate(variable = factor(variable, 
+    levels = c("Intercept", "dem_max", "log_cliff", "log_fc", "precip"),
+    labels = c("Intercept", "Max. Elevation", "Log(Cliff Cover)", "Log(Forest Cover)", "Precipitation")
+  )) |> 
+  arrange(variable)
+
+# 2. Render the table for your PDF
+direction_matrix |> 
+  rename("Covariate" = variable) |> 
+  kable(
+    format = "latex", 
+    booktabs = TRUE,
+    # Left-align the covariate names, center-align all 14 species columns
+    align = c("l", rep("c", ncol(direction_matrix) - 1)) 
+  ) |> 
+  # Scale down ensures all 15 columns fit nicely within the page margins
+  kable_styling(latex_options = c("scale_down")) |> 
+  # Adds a subtle horizontal line after the intercept row to separate it from the covariates
+  row_spec(1, hline_after = TRUE)
+```
+
+A positive value of the intercept indicates a relatively high probability of occurrence, holding all covariates at their mean. This distinguishes a group of species that are relatively prevalent on the landscape and includes several of the Myotis species, the silver-haired bat (LANO), the hoary bat (LACI), and the big brown bat (EPFU). Species that are relatively uncommon, holding all covariates at their mean, include the canyon bat (PAHE), the spotted bat (EUMA), and the Townsend's big-eared bat (COTO). All of the prevalent Myotis species, as well as the fringed Myotis (MYTH) and the Townsend's big-eared bat, showed an increase in occupancy, persistence, and colonization with increased forest cover. Not surprisingly, the canyon bat (PAHE) and the spotted bat (EUMA) showed a similar positive relationship with cliff and canyon cover. The western small-footed Myotis (MYCI) and the pallid bat (ANPA) had credible intervals overlapping zero for cliff and canyon cover. 
+
+Estimates of regional dynamics tell a story for most species of high persistence across years and low colonization. Low estimates of persistence were often coupled with large uncertainty, as for COTO, PAHE, and ANPA (@fig-phi-summary). Conversely, high estimates of colonization were often coupled with large uncertainty, particularly for MYCA and MYVO. 
+
+### Detection
+
+```{r}
+#| label: tbl-det-covar-direction
+#| tbl-cap: The direction of the relationship between the specified covariate and the probability of detection ($p$). Positive (+) or negative (--) relationships are defined by 95% credible intervals that are above or below zero, respectively. '0' indicates a 95% credible interval which overlaps zero. 
+
+detection_summary <- dynocc_coefs |> 
+  filter(var_type == "detection", prior_type == "informative") |> 
+  mutate(effect_symbol = case_when(
+    q2.5 > 0 ~ "+",
+    q97.5 < 0 ~ "--",
+    .default = "0" # Using 0 is mathematically clean, but you could use "None" or "" 
+  )) |> 
+  # Keep only what we need to pivot
+  select(variable, species, effect_symbol) |> 
+  # Pivot species to columns
+  pivot_wider(
+    names_from = species,
+    values_from = effect_symbol,
+    values_fill = "0" # Fills any missing covariate/species combos with 0
+  ) |> 
+  # Clean up the covariate names for the final render
+  mutate(variable = factor(variable, 
+    levels = c("Intercept", "clutter_percent1", "clutter_percent2", "clutter_percent3", "clutter_percent4", "scale(tmin)", "scale(dayl)", "water_ind"),
+    labels = c("Intercept", "Clutter Category (1-25%)", "Clutter Category (26-50%)", "Clutter Category (51-75%)", "Clutter Category (76-100%)","Min. Nightly Temp.", "Day Length", "Watberbody Presence")
+  )) |> 
+  arrange(variable)
+
+# 2. Render the table for your PDF
+detection_summary |> 
+  rename("Covariate" = variable) |> 
+  kable(
+    format = "latex", 
+    booktabs = TRUE,
+    # Left-align the covariate names, center-align all 14 species columns
+    align = c("l", rep("c", ncol(direction_matrix) - 1)) 
+  ) |> 
+  # Scale down ensures all 15 columns fit nicely within the page margins
+  kable_styling(latex_options = c("scale_down")) |> 
+  # Adds a subtle horizontal line after the intercept row to separate it from the covariates
+  row_spec(1, hline_after = TRUE)
+```
+
+Detection coefficients are reported similarly in @tbl-det-covar-direction. Conditional on species presence, warm nights and the presence of a waterbody generally have a positive effect on detection probabilities. The impact of clutter on dectection probabilities does not tell a consistent sotry. Rather, it varies broadly by species. A positive effect in @tbl-det-covar-direction indicates an higher probability of detection, compared to zero clutter, at a site with no waterbody and holding minimum nightly temperature and daylength at their mean. Day length generally showed a positive association, if any, indicating a potential for higher evening activity on long, late-summer days with the exception of MYCA and MYLU. 
+
+In addition to the effects that replicate-level site characteristics have on detection, we can summarize detection probabilities by species. @fig-meanp gives posterior summaries of detection probabilities, conditional on species presence, averaged across sites and years. A low detection rate indicates a high number of false-negative detections in the dataset. COTO, MYVO, ANPA, and MYTH exhibited extremely low detection rates, while LANO and MYLU were among the highest. We point out that low detection rates are related to higher uncertainty in inference for the latent occupancy state. 
+
+![Posterior summaries of the detection probability $p$, averaged across sites and years.](../data/processed/results/stan/diagnostics/p_overall_summary.png){#fig-meanp}
+
+\newpage
+
+### Trends in Occupancy
+
+```{r}
+trend_all <- readRDS(here("data/processed/results/stan/diagnostics/trend_full_stan.rds"))
+
+trend_summary <- trend_all |> 
+  filter(prior_type == "informative") |> 
+  select(species, mean_trend, sd_trend, starts_with("q")) |> 
+  mutate(species = str_to_upper(species)) |> 
+  arrange(mean_trend)
+```
+
+We summarized trends in occupancy by obtaining the posterior distribution of the slope of the best-fit line ($\hat{\delta}$). @fig-delta-trend displays these summaries and @tbl-delta-hat gives numerical results. Species where the entire 95% interval falls below zero (the dashed line) are considered to have a decreasing, linear trend. We interpret this value as the average annual change in regional occupancy. By this definition, LANO, MYCA, MYCI, MYEV, MYTH, and MYVO all have regionally declining occupancy. 
+
+![Posterior summaries of $\hat{\delta}$ across informative and weakly informative prior specifications.](../data/processed/results/stan/diagnostics/delta_trend_compare_main.png){#fig-delta-trend}
+
+While LANO is estimated to decline at only `{r} round(abs(trend_summary$mean_trend[which(trend_summary$species == "LANO")])*100, 2)`% per year (95% CI: `{r} round(abs(trend_summary$q97.5[which(trend_summary$species == "LANO")])*100, 2)`%, `{r} round(abs(trend_summary$q2.5[which(trend_summary$species == "LANO")])*100, 2)`%), MYTH is estimated to decline at `{r} round(abs(trend_summary$mean_trend[which(trend_summary$species == "MYTH")])*100, 2)`% per year (95% CI: `{r} round(abs(trend_summary$q97.5[which(trend_summary$species == "MYTH")])*100, 2)`%, `{r} round(abs(trend_summary$q2.5[which(trend_summary$species == "MYTH")])*100, 2)`%) and MYVO at `{r} round(abs(trend_summary$mean_trend[which(trend_summary$species == "MYVO")])*100, 2)`% per year (95% CI: `{r} round(abs(trend_summary$q97.5[which(trend_summary$species == "MYVO")])*100, 2)`%, `{r} round(abs(trend_summary$q2.5[which(trend_summary$species == "MYVO")])*100, 2)`%). Interestingly, LACI and MYLU demonstrate signs of increasing trend; however, we note that both species are already highly prevalent across the region $\hat{\psi} \approx 0.8$ and have high dectability, resulting in precise estimation but small effect sizes. There are some annual deviation around trend lines, which are captured in more granularity by @fig-psi-trend-informative. Estimates of trend were robust to the specification of priors and generally benefited in terms of precision when specifying informative priors. 
+
+```{r}
+#| label: tbl-delta-hat
+#| tbl-cap: Posterior summaries of slope of the best-fit line to occupancy probabilities over time $\hat{\delta}$ for each species.
+ 
+trend_summary |> 
+  kable(digits = 3, booktabs = T, format = "latex", col.names = c("Species", "Mean", "SD", "2.5%", "25%", "50%", "75%", "97.5%")) |>
+  kable_styling(latex_options = c("scale_down")) 
+```
+
+# Discussion
+
+In this report, we document a 10-year update to occupancy modeling procedures and results for 14 species of bats across the three-state region of Oregon, Washington, and Idaho, using acoustic monitoring data from summer NABat acoustic survyes. We found evidence of a region-wide decline in occupancy for six species, including the long-legged Myotis (MYVO), the fringed Myotis (MYTH), the California Myotis (MYCA), the western small-footed Myotis (MYCI), the long-eared Myotis (MYEV), and the silver-haired bat (LANO). Our results were robust to prior specification and the exclusion of sites sampled from Idaho beginning in 2020. In many cases, estimated precision benefited slightly from informative priors. 
+
+In order to maintain comparability between the studies, we used a similar approach by specifying the autologistic parameterization of the dynamic occupancy model and by including informative priors from the original Oregon Bat Grid [@rodhouse_establishing_2015]. Our results differ from @rodhouse2019, who reported possible decline in regional occupancy trends for the hoary bat (LACI). Our analysis showed similar estimates of occupancy from 2016-2018, but additional years of monitoring data suggest that the apparent decline were due to annual deviation around slightly increasing, but near-flat regional trend. This finding highlights the need for continued monitoring, both locally and as a regional partner of the North American Bat Monitoring Program (NABat). 
+
+@udell_status_2022 has previously published range-wide trend analyses, which are not limited to only summer acoustic monitoring data, for several of the species included in this report that update trends through 2019. The present report excludes additonal data streams but includes six additional years of acoustic monitoring data. They specifically report a decline in occuapncy for the little brown bat (MYLU), while our analysis suggests slightly increasing occupancy over the Oregon, Washington, and Idaho. These diverging results may, in part, be driven by the regional absence of White Nose Syndrome (*Pseudogymnoascus destructans*). WNS has only recenlty been detected for the first time in Washington (2018), Oregon (2025), and Iadho (2026) [@nabat_white-nose_2026]. Continued long-term monitoring is essential to better understand the impacts that WNS has on local bat populations. 
+
+Our analysis is not without limitations. First, we turn to the choice to model occupancy, persistence, and colonization using the same environemental covariates. In the simplest dynamic occupancy model, static environmental covariates are only used to account for spatial heterogeneity in $\psi_{i1}$, occupancy in the first year. Our model assumes that the effects of these static environmental covariates on persistence ($\phi$) and colonization ($\gamma$) dynamics are constant over time and are identical in magnitude to their effect on occupancy in year 1. It is ecologically improbable that this assumption is fully satisfied; however, the simplification allows us to account for spatial heterogeneity persistence and colonization where we would otherwise not be able to. The best dynamic occupancy model would include spatio-temporal covariates for both persistence and colonization; however, this type of information is gathered from large-scale raster datasets and is often not available at an annual resolution (e.g. annual forest cover). Fire dynamics may yet play another important role in this system, but classification of the mechnism by which this might happen is difficult and regional-scale raster data are not readily available. This granular analysis may be possible over a smaller region where fire occurrence and characteristics may be accurately documented. 
+
+Another limitation is the choice of trend metric. The slope of the best-fit line to annual regional occupancy probabilities ($\hat{\delta}$) is coarse, and only assesses a *linear* relationship in occupancy. Quadratic or higher-order polynomial effects of trend are quite possible. We also assume that occupancy follows a first-order Marov process. That is, we assume that occupancy probabilities in the current year are only impacted by occupancy probabilities in the previous year. This means that a site which has been occupied for many seasons has the same probability of persistence as a site which was only occupied the year prior. This precludes our model from accounting for long-term site fidelity.
+
+Finally, we point to the limited detectibility and large uncertainty in detection probabilities for some species. In particular, it is well known that the life-history strategies of the spotted bat and the pallid bat lend themselves poorly to acoustic monitoring techniques [@rodhouse_audible_2021]. One proposal to supplement mobile acoustic detection has been to mobilize citizen scientists to listen for audible echolocation and/or social calls of species such as the spotted bat (EUMA) and the pallid bat (ANPA). We believe that this poses an interesting opportunity to improve our understanding of occupancy and trends for these cryptic species, allbeit new methods will be necessary to account for the possibility of false-positive detections. 
+
+Appropriately accounting for the limitations, this study documents the first published trend analysis for ANPA, COTO, EUMA, MYCA, MYCI, and PAHE, and an important regional update for the remaining species. We also highlight the success of this regional partnership among agencies, universities, and conservation groups. Future analyses that account for the complexities underlying occupancy dynamics are crucial to gain deeper understanding of the environmental drivers of these trends and ensuring the long-term viability of bat populations across the region.
+
+\newpage
+
+# References
+
+::: {#refs}
+:::
+
+# Appendix{#sec-dynocc}
+
+## Derivation and Explanation of Occupancy Models
+
+Let's begin by considering the situation in which we have only conducted a single year of surveys. We will index sites (grid cells) by $i = 1, \ldots, N$ with spatial replicates $j = 1, \ldots, k_i$. Through our acoustic surveys, we have generated observations following:
+
+$$
+Y_{ij} = \begin{cases}
+1 & \mathrm{Detected} \\
+0 & \mathrm{Not~Detected} 
+\end{cases}
+$$
+
+A problem arises, however, when we consider the nature of our observations. What we are actually interested in knowing is the *latent* occupancy state of site $i$:
+
+$$
+Z_{i} =  \begin{cases} 
+1 & \mathrm{Present} \\
+0 & \mathrm{Absent} 
+\end{cases}
+$$
+
+Our observation is conditioned on the latent occupancy state of site $i$, yielding four possibilities:
+
+::: {#tbl-detectionstates}
+\begin{table}
+\small
+    \centering
+    \begin{tabular}{l|c|c}
+            & $Z_{i} = 1$ (Present) & $Z_{i} = 0$ (Absent) \\ \hline
+            \textbf{$Y_{ij} = 1$} & True Positive & \color{red}False Positive \\ \hline
+            \textbf{$Y_{ij} = 0$} & \color{red}False Negative & True Negative \\ 
+        \end{tabular}
+\end{table}
+
+\small Possible conditional observations
+:::
+
+The probability of detection given presence is denoted as $P(Y_{ij} = 1 \mid Z_i = 1) = p_{ij}$, and the probability of a false positive detection is denoted as $P(Y_{ij} = 1 \mid Z_i = 0) = q_{ij}$. A common assumption of occupancy models is "No False Positives" (i.e., $q_{ij} = 0$). With this assumption, we model the conditional observation as:
+
+$$
+Y_{ij} \mid Z_i \sim \mathrm{Bernoulli}(Z_i p_{ij})
+$$
+
+Letting our latent occupancy probability be denoted as $P(Z_i = 1) = \psi_i$, we can form a two-level hierarchical model. To account for environmental heterogeneity across the study area, we model our occupancy ($\psi$) and detection ($p$) parameters with site- and visit-level covariates. The hierarchy is expressed as:
+
+$$
+\begin{aligned}
+Z_i &\sim \mathrm{Bernoulli}(\psi_i) \\
+Y_{ij} \mid Z_i &\sim \mathrm{Bernoulli}(Z_i p_{ij}) \\
+\mathrm{logit}(\psi_i) &= \alpha_0 + X_i\alpha \\
+\mathrm{logit}(p_{ij}) &= \beta_0 + V_{ij}\beta 
+\end{aligned}
+$$
+
+where the hyperparameters $\alpha$ and $\beta$ are typically assigned Normal priors. Coding these models in Stan is not entirely straightforward because Stan cannot sample directly from the discrete latent state $Z_i$. Instead, Stan requires us to sample from the marginalized joint posterior:
+
+$$
+p(y \mid \alpha, \beta) \propto p(y \mid \alpha, \beta)p(\alpha)p(\beta)
+$$
+
+To find the marginal likelihood $p(y \mid \alpha, \beta)$, we must marginalize $Z_i$ out of the site-level joint likelihood. For a single site $i$ with $k_i$ repeat visits, the joint distribution of the observed data and the latent state is:
+
+$$
+p(y_i, z_i \mid \alpha, \beta) = p(z_i \mid \alpha) \prod_{j=1}^{k_i} p(y_{ij} \mid z_i, \beta)
+$$
+
+We marginalize over the two possible discrete states of $Z_i \in \{0, 1\}$ by summing the joint probabilities:
+
+$$
+p(y_i \mid \alpha, \beta) = \sum_{l=0}^{1} p(z_i = l \mid \alpha) \prod_{j=1}^{k_i} p(y_{ij} \mid z_i = l, \beta)
+$$
+
+Assuming independence across sites, the total marginal log-likelihood for all $N$ sites is the sum of the individual site log-likelihoods. To ensure numerical stability, we leverage the `log_sum_exp` trick from the Stan User's Guide, which safely computes the log of the sum on the right-hand side:
+
+$$
+\log p(y \mid \alpha, \beta) = \sum_{i=1}^N \log \left[ \sum_{l=0}^{1} \exp \left( \log p(Z_i = l \mid \alpha) + \sum_{j=1}^{k_i} \log p(y_{ij} \mid Z_i = l, \beta) \right) \right]
+$$
+
+### Dynamic Occupancy Models
+
+Next, we expand this framework to a *Dynamic* Occupancy Model to make full use of the multi-year acoustic monitoring data collected by the NW Bat Hub. Suppose we conduct acoustic monitoring over primary time periods $t = 1, \ldots, T$. We extend the framework by formulating the transition from $Z_{it} \to Z_{i,t+1}$ as a first-order Markov process, assuming:
+
+$$
+p(z_{it} \mid z_{i,t-1}, z_{i,t-2}, \ldots, z_{i1}) = p(z_{it} \mid z_{i,t-1})
+$$
+
+The conditional probabilities of each transition are parameterized in terms of survival ($\phi$) and colonization ($\gamma$), as shown in @tbl-transitions.
+
+::: {#tbl-transitions}
+\begin{table}
+\small
+    \centering
+    \begin{tabular}{l|c|c}
+            & $Z_{i,t+1} = 1$ (Occupied) & $Z_{i,t+1} = 0$ (Unoccupied) \\ \hline
+            $Z_{it} = 1$ (Occupied)   & $\phi$ (Survival) & $1 - \phi$ (Extinction) \\ \hline
+            $Z_{it} = 0$ (Unoccupied) & $\gamma$ (Colonization)   & $1 - \gamma$ (Unoccupied) 
+        \end{tabular}
+\end{table}
+
+\small Possible latent transitions
+:::
+
+To implement this model efficiently in Stan, we formulate it as a Hidden Markov Model (HMM). The HMM is governed by three main components for a single site $i$:
+
+1.  Initial State Distribution: $\boldsymbol{\delta}^{(1)}_i = \begin{bmatrix} P(Z_{i1} = 1) & P(Z_{i1} = 0) \end{bmatrix} = \begin{bmatrix} \psi_{i1} & 1 - \psi_{i1} \end{bmatrix}$
+2.  Transition Probability Matrix: $\boldsymbol{\Gamma}^{(t)}_i = \begin{bmatrix} \phi_{it} & 1 - \phi_{it} \\ \gamma_{it} & 1 - \gamma_{it} \end{bmatrix}$
+3.  State-Dependent Distributions: Represented as a diagonal matrix observation probabilities conditional on the latent states, $\mathbf{P}(y_{it}) = \mathrm{diag}(p(y_{it} \mid z_{it} = 1), p(y_{it} \mid z_{it} = 0))$
+
+We can concisely write the marginal likelihood of the sequence of observations at site $i$ as:
+
+$$
+p(y_{i,1:T} \mid \alpha, \beta) = \boldsymbol{\delta}^{(1)}_i \mathbf{P}(y_{i1}) \boldsymbol{\Gamma}^{(2)}_i \mathbf{P}(y_{i2}) \dots \boldsymbol{\Gamma}^{(T)}_i \mathbf{P}(y_{iT}) \mathbf{1}^\top
+$$
+
+The convenience of this matrix formulation is that we can use the forward algorithm to compute the marginal likelihood recursively. We define the **forward variables**, $\boldsymbol{\alpha}_t$, as row vectors:
+
+$$
+\begin{aligned}
+\boldsymbol{\alpha}_1 &= \boldsymbol{\delta}^{(1)}_i \mathbf{P}(y_{i1}) \\
+\boldsymbol{\alpha}_t &= \boldsymbol{\alpha}_{t-1} \boldsymbol{\Gamma}^{(t)}_i \mathbf{P}(y_{it}) \quad \text{for } t > 1
+\end{aligned}
+$$
+
+By applying the `log_sum_exp` trick to this recursion, we avoid underflow and can efficiently compute the log marginal likelihood inside Stan. We adapt our hierarchical framework to include temporal dynamics:
+
+$$
+\begin{aligned}
+Z_{i1} &\sim \mathrm{Bernoulli}(\psi_{i1}) \\
+Z_{it} \mid Z_{i,t-1} &\sim \mathrm{Bernoulli}(Z_{i,t-1}\phi_{it} + (1 - Z_{i,t-1})\gamma_{it}) \\
+Y_{ijt} \mid Z_{it} &\sim \mathrm{Bernoulli}(Z_{it} p_{ijt}) 
+\end{aligned}
+$$
+
+Naturally, we can model the initial occupancy, survival, colonization, and detection parameters with space-time covariates using standard link functions. One final consideration is recovering our target quantity, the marginal occupancy probability $\psi_{it}$. We can derive a recursive relationship using the law of total expectation:
+
+$$
+\begin{aligned}
+\mathbb{E}[Z_{it}] &= \mathbb{E}[\mathbb{E}[Z_{it} \mid Z_{i,t-1}]] \\
+&= \mathbb{E}[Z_{i,t-1}\phi_{it} + (1 - Z_{i,t-1})\gamma_{it}] \\ 
+\psi_{it}&= \psi_{i,t-1}\phi_{it} + (1-\psi_{i,t-1})\gamma_{it}
+\end{aligned}
+$$
+
+While Stan currently has support for latent variable marginalization in HMMs, the built-in functions only support constant transition probability matrices. Because we need to model spatio-temporal heterogeneity in our transition parameters, we will rely on a custom forward algorithm implementation.
+
+#### The Autologistic parameterization
+
+There are many ways to reparameterize the dynocc model that may be suitable depending on research goals and desired parameter interpretations. One such reparameterization excplicitly captures the temporal autologistic dependence of $\psi_{it}$ on $z_{i,t-1}$ [@kery2021]. Specifically in @rodhouse2019, the model is written:
+
+$$
+\begin{split}
+Z_{i1} &\sim \mathrm{Bernoulli}(\psi_{i1}) \\
+\text{logit}(\psi_{i1}) &= \alpha_0 + X_i\alpha \\
+\text{logit}(\psi_{i,t}) &= a_t + b_t z_{i,t-1} + X_i\alpha \quad \text{for }  t\geq2\\ 
+Y_{ijt} \mid Z_{it} &\sim \mathrm{Bernoulli}(Z_{it} p_{ijt}) \\
+\mathrm{logit}(p_{ijt}) &= \beta_0 + V_{ijt}\beta 
+\end{split}
+$$
+
+This reparameterization gives some additional assumptions and conveniences. The first is that the this model has the convenient interpretation $\text{logit}^{-1}(a_t) = \gamma_t$ and $\text{logit}^{-1}(a_t + b_t) = \phi_t$. That is, when $X_i$ is centered and standardized, we get $\gamma_t$ and $\phi_t$ are interpreted, respectively, as the regional estimates for colonization and survival, holding environmental covariates at their mean. The implied assumption of this model is that static environmental covariates used to model occupancy in year 1 drive colonization and survival in the same direction and magnitude in years $t = 2, \ldots, T$. This model can equivalently be written
+
+$$
+\begin{aligned}
+Z_{i1} &\sim \mathrm{Bernoulli}(\psi_{i1}) \\
+\text{logit}(\psi_{i1}) &= \alpha_0 + X_i\alpha \\
+Z_{it} \mid Z_{i,t-1} &\sim \mathrm{Bernoulli}(Z_{i,t-1}\phi_{it} + (1 - Z_{i,t-1})\gamma_{it}) \quad \text{for }  t\geq2\\
+\text{logit}(\gamma_{it}) &= a_t + X_i\alpha \\
+\text{logit}(\phi_{it}) &= a_t + b_t + X_i\alpha \\
+Y_{ijt} \mid Z_{it} &\sim \mathrm{Bernoulli}(Z_{it} p_{ijt}) \\
+\mathrm{logit}(p_{ijt}) &= \beta_0 + V_{ijt}\beta 
+\end{aligned}
+$$
+
+This way, we can see more easily that the colonization and survival parameters are allowed some restrained spatio-temporal variability that is tied to occupancy in year 1. Specifically, the linear peredictor ($X_i\alpha$) serves as a spatial offset for colonization and survival that vary temporally across the entire region via individual intercepts estimated for each year.
+
+# Informative Priors
+
+:::{#tbl-informative-priors}
+\begin{table}
+    \centering
+    \scriptsize
+    \renewcommand{\arraystretch}{1.3}
+    \resizebox{\textwidth}{!}{%
+    \begin{tabular}{l cc cc cc cc cc cc cc}
+        \hline
+        & \multicolumn{2}{c}{$\alpha_0$} & \multicolumn{2}{c}{$a_t$} & \multicolumn{2}{c}{$b_t$} & \multicolumn{2}{c}{Elevation} & \multicolumn{2}{c}{Precip.} & \multicolumn{2}{c}{Forest} & \multicolumn{2}{c}{Cliffs} \\
+        \cline{2-15}
+        \textbf{Species} & $\mu$ & $\sigma$ & $\mu$ & $\sigma$ & $\mu$ & $\sigma$ & $\mu$ & $\sigma$ & $\mu$ & $\sigma$ & $\mu$ & $\sigma$ & $\mu$ & $\sigma$ \\ \hline
+        MYEV & 0.404  & 0.672 & 1.788  & 1.708 & 3.174  & 1.883 & 2.243  & 0.478 & 0.852  & 0.670 & 1.361  & 0.492 & ---    & ---   \\
+        MYTH & 1.623  & 1.621 & -1.221 & 0.883 & 4.660  & 1.777 & -0.882 & 0.437 & -0.800 & 0.367 & 0.494  & 0.329 & 0.038  & 0.768 \\
+        MYLU & 3.537  & 1.620 & 0.142  & 1.579 & 3.496  & 1.762 & -0.291 & 0.272 & 1.590  & 0.972 & 0.466  & 0.349 & ---    & ---   \\
+        MYVO & 1.911  & 1.673 & 1.834  & 1.271 & 1.860  & 1.893 & 0.787  & 0.306 & -0.384 & 0.328 & 1.743  & 0.435 & ---    & ---   \\
+        MYCI & 0.881  & 0.677 & 4.378  & 1.640 & -1.686 & 1.814 & 0.774  & 0.328 & -0.555 & 0.257 & -0.563 & 0.329 & 2.452  & 1.104 \\
+        MYCA & 1.508  & 0.900 & 1.585  & 1.067 & 2.233  & 1.574 & -0.455 & 0.260 & 1.623  & 0.953 & 0.905  & 0.339 & ---    & ---   \\
+        MYYU & 2.651  & 0.886 & -0.672 & 1.579 & 3.198  & 1.751 & -2.093 & 0.470 & -0.440 & 0.352 & 0.377  & 0.285 & ---    & ---   \\
+        LANO & 1.650  & 1.456 & 1.598  & 1.086 & 3.067  & 1.713 & -0.002 & 0.289 & -0.637 & 0.443 & 1.776  & 0.541 & ---    & ---   \\
+        LACI & 0.158  & 1.157 & -0.682 & 1.529 & 4.326  & 1.946 & -0.527 & 0.297 & -0.415 & 0.306 & 0.642  & 0.269 & ---    & ---   \\
+        ANPA & 2.262  & 1.011 & 3.903  & 2.063 & 1.603  & 2.640 & -1.511 & 0.907 & -1.454 & 0.716 & 0.577  & 0.654 & 1.752  & 1.599 \\
+        EPFU & 2.112  & 1.232 & 0.349  & 1.989 & 2.502  & 2.151 & -1.062 & 0.358 & -1.212 & 0.375 & 2.086  & 0.567 & ---    & ---   \\
+        PAHE & -2.109 & 1.032 & -2.989 & 1.343 & 2.792  & 1.506 & 0.171  & 0.302 & -0.613 & 0.361 & 0.320  & 0.346 & 3.339  & 0.847 \\
+        COTO & -1.358 & 3.484 & -0.712 & 2.336 & 0.304  & 2.525 & -0.868 & 0.835 & -1.590 & 0.876 & -3.387 & 1.082 & ---    & ---   \\
+        EUMA & -1.152 & 2.686 & 1.322  & 2.739 & -0.333 & 3.334 & -0.973 & 1.201 & -2.430 & 1.658 & 0.669  & 1.201 & 5.617  & 2.163 \\
+        \hline
+    \end{tabular}%
+    }
+\end{table}
+
+Species-specific informative priors, $\mathrm{Normal}(\mu, \sigma)$, used for $\alpha_0$, $a_t$, $b_t$, and the occupancy covariate coefficients ($\alpha$: Elevation, Precipitation, Forest, Cliffs). Dashes (---) indicate species for which no covariate estimate was available.
+:::
+
+\newpage
+
+# Supplementary Figures
+```{r}
+#| label: fig-sample
+#| fig-cap: Sampling effort across the three-state region from 2016 to 2025. Sampling status is indicated by a blue border. 
+#| results: hide
+#| fig-width: 8
+#| fig-height: 8
+#| dpi: 300
+
+library(tidyverse)
+library(sf)
+library(here)
+library(tigris)
+
+nw_grid <- readRDS(here("data/processed/occurrence/nw_grid.rds"))
+states <- tigris::states()
+pnw <- c("Oregon", "Washington", "Idaho")
+
+pnw_states <- states |> filter(NAME %in% pnw) |> st_as_sf(coords = nw_grid)
+nw_grid |>
+  select(starts_with("sample")) |>
+  pivot_longer(cols = -c(sample_unit_id, geometry)) |>
+  mutate(
+    year = parse_number(name),
+    sampled = if_else(value == 1, "Sampled", "Not Sampled")
+  ) |>
+  ggplot() +
+  geom_sf(aes(fill = sampled), linewidth = 1e-7) +
+  geom_sf(
+    data = pnw_states,
+    fill = "transparent",
+    color = "black",
+    linewidth = 0.25
+  ) +
+  facet_wrap(~year, ncol = 3) +
+  labs(fill = "Status")+
+  scale_fill_manual(values = c("transparent", "blue")) +
+  theme_void() +
+  theme(axis.text = element_blank(),
+  legend.position = "bottom")
+```
+
+![Coefficients of the relationship between environmental covariates and occupancy, survival, and colonization for all species and sensitivity analyses.](../data/processed/results/stan/diagnostics/occ_pars_summary.png){#fig-occ-pars-summary}
+
+![Annual estimates of persistence ($\phi$), averaged across sites for all species and sensitivity analyes.](../data/processed/results/stan/diagnostics/dyn_phi_summary.png){#fig-phi-summary}
+
+![Annual estimates of colonization ($\gamma$), averaged across sites for all species and sensitivity analyes.](../data/processed/results/stan/diagnostics/dyn_gamma_summary.png){#fig-gamma-summary}
+
+![Annual estimates of occupancy averaged across sites ($\hat{\bar{\psi}}_t$), overlayed with the best-fit trend line.](../data/processed/results/stan/diagnostics/psi_trend_informative.png){#fig-psi-trend-informative}
+
+![Estimate's of Moran's I using neighbors from 10-50km. The centering around zero with decreasing precision indicates no unmodeled spatial heterogeneity.](../data/processed/results/stan/diagnostics/moran_correlogram_informative.png){#fig-moransI}
+
+\newpage
+
+# Supplementary Tables
+
+```{r}
+#| label: tbl-occ-res
+#| tbl-cap: Posterior summaries of occupancy covariates using informative priors. "-" indicates that the Log(Cliff Cover) covariate was not included in the model for that species. 
+
+library(tidyverse)
+library(gt)
+
+build_kable_multivar <- function(data, target_vars, var_labels = target_vars, digits = 2) {
+  
+  # 1. Filter, order, and pivot the data
+  wide_data <- data |> 
+    filter(variable %in% target_vars, prior_type == "informative") |> 
+    mutate(variable = factor(variable, levels = target_vars)) |> 
+    select(species, variable, mean, sd, q2.5, q97.5) |> 
+    pivot_wider(
+      names_from = variable,
+      values_from = c(mean, sd, q2.5, q97.5),
+      names_vary = "slowest" 
+    ) |> 
+    # 2. Format numbers strictly to the specified digits and replace NAs with "-"
+    mutate(across(
+      where(is.numeric), 
+      ~ if_else(is.na(.x), "-", formatC(.x, format = "f", digits = digits))
+    )) 
+
+  # 3. Dynamically build the repeating column names for the lower header level
+  num_vars <- length(target_vars)
+  stat_names <- c("Mean", "SD", "2.5%", "97.5%")
+  col_names <- c("Species", rep(stat_names, num_vars))
+  
+  # 4. Dynamically build the multi-level header grouping for add_header_above()
+  header_grouping <- c(" " = 1, setNames(rep(4, num_vars), var_labels))
+  
+  # 5. Generate the kable table
+  wide_data |> 
+    kable(
+      format = "latex", 
+      booktabs = TRUE,
+      col.names = col_names,
+      align = c("l", rep("c", num_vars * 4))
+    ) |> 
+    add_header_above(header = header_grouping, bold = TRUE) |> 
+    kable_styling(latex_options = c("scale_down"))
+}
+
+build_kable_multivar(dynocc_coefs, target_vars = c("precip", "log_fc", "dem_max", "log_cliff"), var_labels = c("Precipitation", "Log(Forest Cover)", "Elevation", "Log(Cliff Cover)"), digits = 3)
+```

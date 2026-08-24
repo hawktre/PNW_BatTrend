@@ -13,7 +13,8 @@ This directory contains all scripts required to clean raw data, compile covariat
 | `04_get_daymet.py` | Downloads Daymet climate data for surveyed sites via pydaymet. | `data/raw/covariates/daymet/daymet_sites.csv` | `data/raw/covariates/daymet/daymet_output.csv` |
 | `05_detections_modprep.R` | Joins detections with climate data and prepares temporal replicates. | `data/processed/detections/detection_histories.rds`, `data/raw/covariates/daymet/daymet_output.csv` | `data/processed/detections/nw_nights.rds` |
 | `06_occurrence_modprep.R` | Finalizes grid-level covariate preparation for modeling. | `data/processed/occurrence/batgrid_covars.shp`, `data/processed/detections/nw_nights.rds` | `data/processed/occurrence/nw_grid.rds` |
-| `07_jagsMod.R` | Runs occupancy models using JAGS. | `data/processed/` (.rds files) | Model results in `data/processed/results/` |
+| `07_dynoccMod.R` | Fits dynamic occupancy model in Stan. | `data/processed/` (.rds files) | Model fits in `data/processed/results/stan/` |
+| `07_dynoccMod_stPGOcc.R` | Fits spatio-temporal occupancy model using `spOccupancy` (`stPGOcc`). | `data/processed/` (.rds files) | Model fits in `data/processed/results/stPGOcc/` |
 | `08_tPGOcc.R` | Runs multi-season occupancy models using `spOccupancy`. | `data/processed/` (.rds files) | Model results in `data/processed/results/` |
 | `09_stPGocc.R` | Runs spatial-temporal occupancy models using `spOccupancy`. | `data/processed/` (.rds files) | Model results in `data/processed/results/` |
 | `10_MethodComparisons.R` | Compares results from different modeling approaches. | Model outputs | Comparison plots and tables |

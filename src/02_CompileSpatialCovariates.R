@@ -74,7 +74,7 @@ conus_pnw_covars <- nabat_pnw %>%
 
 ## rename to make it easier to call
 covars <- conus_pnw_covars
-
+plot(covars["physio_div"])
 plot(covars["state"])
 # Get Cliff_Canyon ---------------------------------------------------------------
 ## Create a single layer
