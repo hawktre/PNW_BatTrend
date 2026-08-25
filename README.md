@@ -3,7 +3,7 @@
 A repository for analyzing multi-species bat population trends in the Pacific Northwest (PNW) across the 2016–2025 monitoring period using Bayesian dynamic occupancy modeling implemented in Stan (`cmdstanr`).
 
 > [!NOTE]
-> This project codebase and analytical workflow are developed and maintained with the assistance of Google Gemini.
+> This project codebase and analytical workflow are developed and maintained with the assistance of AI (Gemini CLI).
 
 ---
 
