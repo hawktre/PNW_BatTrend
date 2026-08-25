@@ -15,7 +15,7 @@ data {
   int<lower=1> n_det_covs;                
   matrix[n_obs, n_det_covs] vmat;         
   
-  // Prior hyperparameters (Passed dynamically)
+  // Prior hyperparameters 
   real a_mu; 
   real<lower=0> a_sigma;
   
@@ -76,7 +76,7 @@ model {
     int s1 = start_idx[i, 1];
     int e1 = end_idx[i, 1];
     
-    // Explicit observation loop for Year 1
+    // Log-likelihood for Year 1
     if (s1 > 0) {
       for (n in s1:e1) {
         ll_occ_y1 += bernoulli_logit_lpmf(dets[n] | logit_p[n]);
@@ -90,20 +90,20 @@ model {
     lp[1] = log_inv_logit(psi_spatial[i]) + ll_occ_y1;
     lp[2] = log1m_inv_logit(psi_spatial[i]) + ll_unocc_y1;
 
-    // Transition across remaining years
+    // Log-likelihood for remaining years
     for (t in 2:n_years) {
-      real ll_occ = 0.0;
-      real ll_unocc = 0.0;
+      real ll_occ_t = 0.0;
+      real ll_unocc_t = 0.0;
       
       int st = start_idx[i, t];
       int et = end_idx[i, t];
       
-      // Explicit observation loop for Year t
+      // Log-likelihood in year T
       if (st > 0) {
         for (n in st:et) {
-          ll_occ += bernoulli_logit_lpmf(dets[n] | logit_p[n]);
+          ll_occ_t += bernoulli_logit_lpmf(dets[n] | logit_p[n]);
           if (dets[n] == 1) {
-            ll_unocc = negative_infinity();
+            ll_unocc_t = negative_infinity();
           }
         }
       }
@@ -118,17 +118,17 @@ model {
       lp_next[1] = log_sum_exp(
           lp[1] + log_inv_logit(logit_phi),     
           lp[2] + log_inv_logit(logit_gamma)    
-      ) + ll_occ;
+      ) + ll_occ_t;
       
       lp_next[2] = log_sum_exp(
           lp[1] + log1m_inv_logit(logit_phi),   
           lp[2] + log1m_inv_logit(logit_gamma)  
-      ) + ll_unocc;
+      ) + ll_unocc_t;
 
       lp = lp_next;
     }
     
-    // Accumulate the final log-likelihood for the site
+    // Increment log-likelihood for the site
     target += log_sum_exp(lp);
   }
 }
@@ -143,15 +143,16 @@ generated quantities {
   array[n_sites, n_years] int z_sim;
   matrix[n_sites, n_years] occ_res;
   vector[n_obs] p;
+  vector[n_obs] det_res;
 
-  // 1. Derived regional average transition parameters
+  // Derived regional average transition parameters
   // Evaluated at average environmental conditions 
   for (t in 1:(n_years - 1)) {
     phi[t] = inv_logit(a[t] + b[t]);
     gamma[t] = inv_logit(a[t]);
   }
 
-  // 2. Compute site-specific expected occupancy (psi)
+  //Compute site-specific expected occupancy (psi)
   for (i in 1:n_sites) {
     psi[i, 1] = inv_logit(psi_spatial[i]);
     
@@ -163,10 +164,10 @@ generated quantities {
     }
   }
 
-  // 3. Reconstruct detection probability for all observations
+  //Reconstruct detection probability for all observations
   p = inv_logit(beta0 + vmat * betas); 
 
-  // 4. Simulate latent states and calculate occupancy residuals
+  //Simulate latent states and calculate occupancy residuals
   for (i in 1:n_sites) {
     // Year 1
     z_sim[i, 1] = bernoulli_rng(psi[i, 1]);
@@ -182,7 +183,7 @@ generated quantities {
     }
   }
 
-  // 5. Generate posterior predictive observations (y_rep)
+  //Generate y_rep
   for (i in 1:n_sites) {
     for (t in 1:n_years) {
       int st = start_idx[i, t];
@@ -191,6 +192,7 @@ generated quantities {
       if (st > 0) {
         for (n in st:et) {
           y_rep[n] = bernoulli_rng(z_sim[i, t] * p[n]);
+          det_res[n] = y_rep[n] - p[n];
         }
       }
     }

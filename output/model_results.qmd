@@ -224,7 +224,7 @@ nw_grid |>
   select(year, Oregon, Washington, Idaho) |> 
   mutate(Total = Oregon + Washington + Idaho) |> 
   rename(Year = year) |> 
-  knitr::kable(booktabs = TRUE)
+  knitr::kable(booktabs = TRUE, format = "latex")
 ```
 
 To maintain comparison with @rodhouse2019 and to make use of informative priors, we used mean annual precipitation, maximum elevation, and forest cover (%) aggregated to the cell-level as evnironmental covariates for all species. For known cliff-roosting species (MYCI, ANPA, EUMA, PAHE), we included cliff cover (%) as an additional covariate. Cliff and forest cover covariates were offset by one and log-transformed. All covariates were centered and standardized to have zero-mean and unit standard devition to imrove MCMC sampling efficiency and convergence. 
@@ -654,6 +654,25 @@ nw_grid |>
   theme_void() +
   theme(axis.text = element_blank(),
   legend.position = "bottom")
+
+  ggsave("sampled_units_2016-2025.png", path = here("output/"), units = "in", width = 12, height = 10)
+```
+
+```{r}
+nw_grid |> 
+  filter(precip >= 0) |> 
+  ggplot()+
+  geom_sf()+
+  geom_sf(
+    data = pnw_states,
+    fill = "transparent",
+    color = "black",
+    linewidth = 0.25
+  ) +
+    theme_void() +
+    theme(axis.text = element_blank())
+
+  
 ```
 
 ![Coefficients of the relationship between environmental covariates and occupancy, survival, and colonization for all species and sensitivity analyses.](../data/processed/results/stan/diagnostics/occ_pars_summary.png){#fig-occ-pars-summary}

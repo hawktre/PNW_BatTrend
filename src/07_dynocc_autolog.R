@@ -254,7 +254,7 @@ for (spp in possible_bats) {
 }
 
 # Save Data Objects & Metadata --------------------------------------------
-output_dir <- here("data/processed/results/stan/full/fits")
+output_dir <- here("data/processed/results/stan/fits")
 if (!dir.exists(output_dir)) {
   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 }
@@ -282,7 +282,7 @@ saveRDS(
 stan_model_file <- here("src/dynocc_autologistic.stan")
 mod <- cmdstan_model(stan_model_file)
 
-species_to_run <- 2:max(seq_along(possible_bats))
+species_to_run <- seq_along(possible_bats)
 
 for (i in species_to_run) {
   spp <- names(stan_data)[i]

@@ -67,21 +67,36 @@ run_step "src/06_occurrence_modprep.R" \
     "Finalizing grid-level covariate preparation for modeling" \
     "Rscript src/06_occurrence_modprep.R"
 
-# --- Modeling Phase ---
-# These steps are computationally intensive and may take significant time.
+# --- Modeling & Diagnostics Phase ---
+# Stan model fitting is computationally intensive. If fits already exist,
+# fitting steps can be run or skipped depending on workflow needs.
 
-# Step 7: JAGS Modeling
-# run_step "src/07_jagsMod.R" \
-#     "Running occupancy models using JAGS" \
-#     "Rscript src/07_jagsMod.R"
+# Step 7: Stan Dynamic Occupancy Modeling (Autologistic)
+# run_step "src/07_dynocc_autolog.R" \
+#     "Fitting dynamic occupancy autologistic models in Stan across species" \
+#     "Rscript src/07_dynocc_autolog.R"
 
-# Step 8: JAGS Diagnostics
-if [ -d "data/processed/results/jags/full/fits" ] && [ "$(find data/processed/results/jags/full/fits -maxdepth 1 -name '*_jagsfit_*.rds' | wc -l)" -gt 0 ]; then
-    run_step "src/08_jagsDiagnostics.R" \
-        "Computing convergence diagnostics and generating diagnostic plots" \
-        "Rscript src/08_jagsDiagnostics.R"
+# Step 8: Stan Sensitivity Analysis (Excluding Idaho)
+# run_step "src/08_dynoccSensitivity.R" \
+#     "Fitting sensitivity analysis models in Stan without Idaho data" \
+#     "Rscript src/08_dynoccSensitivity.R"
+
+# Step 9: Stan Diagnostics, Summaries, and Diagnostic Plots
+if [ -d "data/processed/results/stan/fits" ] && [ "$(find data/processed/results/stan/fits -maxdepth 1 -name '*_stanfit_*.rds' | wc -l)" -gt 0 ]; then
+    run_step "src/09_stanDiagnostics.R" \
+        "Computing MCMC diagnostics, posterior predictive checks, Moran's I, and trend summaries" \
+        "Rscript src/09_stanDiagnostics.R"
 else
-    echo -e "${GREEN}>>> Skipping: src/08_jagsDiagnostics.R (No JAGS fit files found)${NC}\n"
+    echo -e "${GREEN}>>> Skipping: src/09_stanDiagnostics.R (No Stan fit files found in data/processed/results/stan/fits)${NC}\n"
+fi
+
+# Step 10: Stan Spatial Prediction Maps
+if [ -d "data/processed/results/stan/fits" ] && [ "$(find data/processed/results/stan/fits -maxdepth 1 -name '*_stanfit_*.rds' | wc -l)" -gt 0 ]; then
+    run_step "src/10_stanMaps.R" \
+        "Generating regional spatial prediction maps of occupancy and uncertainty" \
+        "Rscript src/10_stanMaps.R"
+else
+    echo -e "${GREEN}>>> Skipping: src/10_stanMaps.R (No Stan fit files found in data/processed/results/stan/fits)${NC}\n"
 fi
 
 echo "===================================================="

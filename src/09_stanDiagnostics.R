@@ -24,7 +24,7 @@ base_diag_dir <- here("data/processed/results/stan/diagnostics")
 
 prior_types <- c("weakly_informative", "informative", "weakly_informative_sensitivity")
 
-# Create base diagnostics directory and subdirectories for each prior type
+# Create base diagnostics directory, subdirectories for each prior type, and subdirectories for each species
 if (!dir.exists(base_diag_dir)) {
   dir.create(base_diag_dir, recursive = TRUE, showWarnings = FALSE)
 }
@@ -35,13 +35,6 @@ for (prior in prior_types) {
     dir.create(prior_dir, recursive = TRUE, showWarnings = FALSE)
   }
 }
-
-# Read in Metadata & Design Matrices --------------------------------------
-des_matrix_path <- here("data/processed/results/stan/design_matrices.rds")
-des_matrix <- if (file.exists(des_matrix_path)) readRDS(des_matrix_path) else NULL
-
-des_matrix_sens_path <- here("data/processed/results/stan/design_matrices_sensitivity.rds")
-des_matrix_sens <- if (file.exists(des_matrix_sens_path)) readRDS(des_matrix_sens_path) else NULL
 
 # Species to model
 possible_bats <- c(
@@ -63,6 +56,20 @@ possible_bats <- c(
 
 # Cliff-associated species
 cliff_spp <- c("anpa", "euma", "myci", "pahe")
+
+for (spp in possible_bats) {
+  spp_dir <- file.path(base_diag_dir, spp)
+  if (!dir.exists(spp_dir)) {
+    dir.create(spp_dir, recursive = TRUE, showWarnings = FALSE)
+  }
+}
+
+# Read in Metadata & Design Matrices --------------------------------------
+des_matrix_path <- here("data/processed/results/stan/design_matrices.rds")
+des_matrix <- if (file.exists(des_matrix_path)) readRDS(des_matrix_path) else NULL
+
+des_matrix_sens_path <- here("data/processed/results/stan/design_matrices_sensitivity.rds")
+des_matrix_sens <- if (file.exists(des_matrix_sens_path)) readRDS(des_matrix_sens_path) else NULL
 
 # Load bundled data objects for PPC checks
 stan_data_list <- list(
@@ -144,12 +151,13 @@ calc_moran_draws <- function(Z_mat, dist_mat, d_min, d_max, row_standardize = TR
 }
 
 # Storage for results -----------------------------------------------------
-all_res_list    <- list()
-psi_full_list   <- list()
-trend_full_list <- list()
-p_overall_list  <- list()
-p_annual_list   <- list()
-moran_i_list    <- list()
+all_res_list     <- list()
+psi_full_list    <- list()
+trend_full_list  <- list()
+p_overall_list   <- list()
+p_annual_list    <- list()
+moran_i_list     <- list()
+moran_draws_list <- list()
 
 # Loop Over Species and Priors --------------------------------------------
 for (spp in possible_bats) {
@@ -202,6 +210,11 @@ for (spp in possible_bats) {
         
         ggsave(
           filename = file.path(prior_out_dir, paste0("ppc_", spp, "_", prior, ".png")),
+          plot = ppc, width = 5, height = 4, units = "in", dpi = 300
+        )
+        spp_out_dir <- file.path(base_diag_dir, spp)
+        ggsave(
+          filename = file.path(spp_out_dir, paste0("ppc_", spp, "_", prior, ".png")),
           plot = ppc, width = 5, height = 4, units = "in", dpi = 300
         )
       }
@@ -427,24 +440,35 @@ for (spp in possible_bats) {
         occ_res_arr <- array(as.vector(occ_res_mat), dim = c(n_draws, n_sites_use, n_years_use))
         site_res_per_draw <- apply(occ_res_arr, c(1, 2), mean)
         
-        moran_spp_list <- map_dfr(distance_bands, function(b) {
+        # Compute draw-level Moran's I across distance bands
+        moran_draws_spp <- map_dfr(distance_bands, function(b) {
           i_draws <- calc_moran_draws(site_res_per_draw, d_mat_use, b$min, b$max)
           tibble(
-            species      = spp,
-            prior_type   = prior,
-            band_label   = b$label,
-            dist_min     = b$min,
-            dist_max     = b$max,
-            dist_mid     = b$mid,
-            mean_I       = mean(i_draws, na.rm = TRUE),
-            sd_I         = sd(i_draws, na.rm = TRUE),
-            q2.5         = quantile(i_draws, 0.025, na.rm = TRUE, names = FALSE),
-            q25          = quantile(i_draws, 0.25, na.rm = TRUE, names = FALSE),
-            q50          = quantile(i_draws, 0.50, na.rm = TRUE, names = FALSE),
-            q75          = quantile(i_draws, 0.75, na.rm = TRUE, names = FALSE),
-            q97.5        = quantile(i_draws, 0.975, na.rm = TRUE, names = FALSE)
+            species    = spp,
+            prior_type = prior,
+            band_label = b$label,
+            dist_min   = b$min,
+            dist_max   = b$max,
+            dist_mid   = b$mid,
+            draw       = seq_along(i_draws),
+            moran_I    = i_draws
           )
         })
+        moran_draws_list[[paste(spp, prior, sep = "_")]] <- moran_draws_spp
+
+        # Summary statistics per band
+        moran_spp_list <- moran_draws_spp %>%
+          group_by(species, prior_type, band_label, dist_min, dist_max, dist_mid) %>%
+          summarise(
+            mean_I = mean(moran_I, na.rm = TRUE),
+            sd_I   = sd(moran_I, na.rm = TRUE),
+            q2.5   = quantile(moran_I, 0.025, na.rm = TRUE, names = FALSE),
+            q25    = quantile(moran_I, 0.25, na.rm = TRUE, names = FALSE),
+            q50    = quantile(moran_I, 0.50, na.rm = TRUE, names = FALSE),
+            q75    = quantile(moran_I, 0.75, na.rm = TRUE, names = FALSE),
+            q97.5  = quantile(moran_I, 0.975, na.rm = TRUE, names = FALSE),
+            .groups = "drop"
+          )
         moran_i_list[[paste(spp, prior, sep = "_")]] <- moran_spp_list
         rm(occ_res_mat, occ_res_arr, site_res_per_draw)
       }
@@ -464,6 +488,7 @@ trend_full_df  <- bind_rows(trend_full_list)
 p_overall_df   <- bind_rows(p_overall_list)
 p_annual_df    <- bind_rows(p_annual_list)
 moran_i_df     <- bind_rows(moran_i_list)
+moran_draws_df <- bind_rows(moran_draws_list)
 
 if (nrow(all_res_df) == 0) {
   stop("No Stan fits were found to summarize. Please check that fits exist in data/processed/results/stan/fits/.")
@@ -473,9 +498,10 @@ if (nrow(all_res_df) == 0) {
 saveRDS(all_res_df, file.path(base_diag_dir, "all_res_stan.rds"))
 saveRDS(psi_full_df, file.path(base_diag_dir, "psi_full_stan.rds"))
 saveRDS(trend_full_df, file.path(base_diag_dir, "trend_full_stan.rds"))
-if (nrow(p_overall_df) > 0) saveRDS(p_overall_df, file.path(base_diag_dir, "p_overall_stan.rds"))
-if (nrow(p_annual_df) > 0) saveRDS(p_annual_df, file.path(base_diag_dir, "p_annual_stan.rds"))
-if (nrow(moran_i_df) > 0)  saveRDS(moran_i_df, file.path(base_diag_dir, "moran_i_stan.rds"))
+if (nrow(p_overall_df) > 0)   saveRDS(p_overall_df, file.path(base_diag_dir, "p_overall_stan.rds"))
+if (nrow(p_annual_df) > 0)    saveRDS(p_annual_df, file.path(base_diag_dir, "p_annual_stan.rds"))
+if (nrow(moran_i_df) > 0)     saveRDS(moran_i_df, file.path(base_diag_dir, "moran_i_stan.rds"))
+if (nrow(moran_draws_df) > 0) saveRDS(moran_draws_df, file.path(base_diag_dir, "moran_draws_stan.rds"))
 
 write_csv(all_res_df, file.path(base_diag_dir, "stan_diagnostics_summary.csv"))
 write_csv(trend_full_df, file.path(base_diag_dir, "stan_trend_summary.csv"))
@@ -495,7 +521,7 @@ occ_plot_data <- all_res_df %>%
     prior_label = case_when(
       prior_type == "informative" ~ "Informative",
       prior_type == "weakly_informative" ~ "Weakly Informative",
-      TRUE ~ "Weakly Informative (Sensitivity)"
+      TRUE ~ "Weakly Informative (No Idaho)"
     ),
     variable_label = factor(
       variable,
@@ -581,7 +607,7 @@ dyn_phi_data <- all_res_df %>%
     prior_label = case_when(
       prior_type == "informative" ~ "Informative",
       prior_type == "weakly_informative" ~ "Weakly Informative",
-      TRUE ~ "Weakly Informative (Sensitivity)"
+      TRUE ~ "Weakly Informative (No Idaho)"
     )
   )
 
@@ -628,7 +654,7 @@ dyn_gamma_data <- all_res_df %>%
     prior_label = case_when(
       prior_type == "informative" ~ "Informative",
       prior_type == "weakly_informative" ~ "Weakly Informative",
-      TRUE ~ "Weakly Informative (Sensitivity)"
+      TRUE ~ "Weakly Informative (No Idaho)"
     )
   )
 
@@ -671,7 +697,14 @@ ggsave(file.path(base_diag_dir, "dyn_gamma_summary_nosens.png"), width = 14, hei
 ## 4. Occupancy Probability Trajectories over Time -----------------------
 cat("Generating regional occupancy trajectory plots...\n")
 psi_trend_merged <- psi_full_df %>%
-  mutate(cal_year = if_else(year <= 10, year + 2015, year)) %>%
+  mutate(
+    cal_year = if_else(year <= 10, year + 2015, year),
+    prior_label = case_when(
+      prior_type == "informative" ~ "Informative",
+      prior_type == "weakly_informative" ~ "Weakly Informative",
+      TRUE ~ "Weakly Informative (No Idaho)"
+    )
+  ) %>%
   left_join(
     trend_full_df %>% select(species, prior_type, trend_status, mean_trend),
     by = c("species", "prior_type")
@@ -686,7 +719,7 @@ for (p_type in prior_types) {
   p_label <- case_when(
     p_type == "informative" ~ "Informative",
     p_type == "weakly_informative" ~ "Weakly Informative",
-    TRUE ~ "Weakly Informative (Sensitivity)"
+    TRUE ~ "Weakly Informative (No Idaho)"
   )
   
   psi_p_data <- psi_trend_merged %>% filter(prior_type == p_type)
@@ -703,7 +736,6 @@ for (p_type in prior_types) {
       scale_fill_manual(values = c("Increasing" = "#27ae60", "Decreasing" = "#c0392b", "Uncertain" = "#7f8c8d")) +
       labs(
         title = paste0("Regional Occupancy Trajectories (", p_label, " Priors)"),
-        subtitle = "Colored lines & ribbon: annual posterior mean occupancy (95% CI) | Straight black line: estimated linear trend",
         x = "Year",
         y = "Regional Occupancy Probability (95% CI)",
         color = "Trend Status",
@@ -731,7 +763,7 @@ trend_compare_plot <- trend_full_df %>%
     prior_label = case_when(
       prior_type == "informative" ~ "Informative",
       prior_type == "weakly_informative" ~ "Weakly Informative",
-      TRUE ~ "Weakly Informative (Sensitivity)"
+      TRUE ~ "Weakly Informative (No Idaho)"
     )
   ) %>%
   ggplot(aes(x = species, y = mean_trend, color = prior_label)) +
@@ -826,27 +858,70 @@ if (nrow(p_annual_df) > 0) {
 
 ## 8. Moran's I Residual Spatial Correlograms (10 to 50 km) ----------------
 if (nrow(moran_i_df) > 0) {
-  cat("Generating Moran's I residual spatial correlogram plots...\n")
+  cat("Generating Moran's I residual spatial correlogram spaghetti plots...\n")
+  
+  band_levels <- sapply(distance_bands, function(b) b$label)
+  
   moran_plot_data <- moran_i_df %>%
     mutate(
       prior_label = case_when(
         prior_type == "informative" ~ "Informative",
         prior_type == "weakly_informative" ~ "Weakly Informative",
-        TRUE ~ "Weakly Informative (Sensitivity)"
+        TRUE ~ "Weakly Informative (No Idaho)"
       ),
-      species_upper = toupper(species)
+      species_upper = toupper(species),
+      band_label = factor(band_label, levels = band_levels)
     )
   
+  # Subsample draws for spaghetti lines (100 draws per species & prior)
+  if (nrow(moran_draws_df) > 0) {
+    set.seed(42)
+    moran_draws_plot_data <- moran_draws_df %>%
+      mutate(
+        prior_label = case_when(
+          prior_type == "informative" ~ "Informative",
+          prior_type == "weakly_informative" ~ "Weakly Informative",
+          TRUE ~ "Weakly Informative (No Idaho)"
+        ),
+        species_upper = toupper(species),
+        band_label = factor(band_label, levels = band_levels)
+      )
+    
+    unique_draws <- unique(moran_draws_plot_data$draw)
+    sample_draw_ids <- sample(unique_draws, size = min(100, length(unique_draws)))
+    moran_draws_sub <- moran_draws_plot_data %>%
+      filter(draw %in% sample_draw_ids)
+  } else {
+    moran_draws_sub <- NULL
+  }
+  
   # All priors (3 priors)
-  p_moran_all <- ggplot(moran_plot_data, aes(x = band_label, y = mean_I, group = prior_label, color = prior_label)) +
-    geom_errorbar(aes(ymin = q2.5, ymax = q97.5), width = 0.25, position = position_dodge(width = 0.35)) +
-    geom_point(position = position_dodge(width = 0.35), size = 1.5) +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+  p_moran_all <- ggplot()
+  if (!is.null(moran_draws_sub)) {
+    p_moran_all <- p_moran_all +
+      geom_line(
+        data = moran_draws_sub,
+        aes(x = band_label, y = moran_I, group = interaction(draw, prior_label), color = prior_label),
+        alpha = 0.12, linewidth = 0.35
+      )
+  }
+  p_moran_all <- p_moran_all +
+    geom_line(
+      data = moran_plot_data,
+      aes(x = band_label, y = mean_I, group = prior_label, color = prior_label),
+      linewidth = 1.1
+    ) +
+    geom_point(
+      data = moran_plot_data,
+      aes(x = band_label, y = mean_I, group = prior_label, color = prior_label),
+      size = 1.8
+    ) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
     facet_wrap(~species_upper, ncol = 2) +
     labs(
-      title = "Residual Spatial Autocorrelation Correlogram (Moran's I)",
+      title = "Residual Spatial Autocorrelation Correlogram (Moran's I Spaghetti Plot)",
       x = "Neighborhood Distance Band",
-      y = "Posterior Mean Moran's I (95% CI)",
+      y = "Moran's I",
       color = "Prior"
     ) +
     theme_bw() +
@@ -856,15 +931,34 @@ if (nrow(moran_i_df) > 0) {
   
   # Main priors only (without sensitivity)
   moran_plot_data_main <- moran_plot_data %>% filter(prior_type %in% c("informative", "weakly_informative"))
-  p_moran_main <- ggplot(moran_plot_data_main, aes(x = band_label, y = mean_I, group = prior_label, color = prior_label)) +
-    geom_errorbar(aes(ymin = q2.5, ymax = q97.5), width = 0.25, position = position_dodge(width = 0.35)) +
-    geom_point(position = position_dodge(width = 0.35), size = 1.5) +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+  moran_draws_sub_main <- if (!is.null(moran_draws_sub)) moran_draws_sub %>% filter(prior_type %in% c("informative", "weakly_informative")) else NULL
+  
+  p_moran_main <- ggplot()
+  if (!is.null(moran_draws_sub_main)) {
+    p_moran_main <- p_moran_main +
+      geom_line(
+        data = moran_draws_sub_main,
+        aes(x = band_label, y = moran_I, group = interaction(draw, prior_label), color = prior_label),
+        alpha = 0.15, linewidth = 0.35
+      )
+  }
+  p_moran_main <- p_moran_main +
+    geom_line(
+      data = moran_plot_data_main,
+      aes(x = band_label, y = mean_I, group = prior_label, color = prior_label),
+      linewidth = 1.1
+    ) +
+    geom_point(
+      data = moran_plot_data_main,
+      aes(x = band_label, y = mean_I, group = prior_label, color = prior_label),
+      size = 1.8
+    ) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
     facet_wrap(~species_upper, ncol = 2) +
     labs(
       title = "Residual Spatial Autocorrelation Correlogram (Informative vs. Weakly Informative)",
       x = "Neighborhood Distance Band",
-      y = "Posterior Mean Moran's I (95% CI)",
+      y = "Moran's I",
       color = "Prior"
     ) +
     theme_bw() +
@@ -876,21 +970,41 @@ if (nrow(moran_i_df) > 0) {
   # Prior-specific correlogram plots
   for (p_type in prior_types) {
     p_sub <- moran_plot_data %>% filter(prior_type == p_type)
+    draws_p_sub <- if (!is.null(moran_draws_sub)) moran_draws_sub %>% filter(prior_type == p_type) else NULL
+    
     if (nrow(p_sub) > 0) {
       p_label <- case_when(
         p_type == "informative" ~ "Informative",
         p_type == "weakly_informative" ~ "Weakly Informative",
-        TRUE ~ "Weakly Informative (Sensitivity)"
+        TRUE ~ "Weakly Informative (No Idaho)"
       )
-      p_moran_sub <- ggplot(p_sub, aes(x = band_label, y = mean_I, group = species_upper)) +
-        geom_errorbar(aes(ymin = q2.5, ymax = q97.5), width = 0.25, color = "#2980b9") +
-        geom_point(color = "#2980b9", size = 1.5) +
-        geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+      
+      p_moran_sub <- ggplot()
+      if (!is.null(draws_p_sub)) {
+        p_moran_sub <- p_moran_sub +
+          geom_line(
+            data = draws_p_sub,
+            aes(x = band_label, y = moran_I, group = draw),
+            color = "#2980b9", alpha = 0.15, linewidth = 0.35
+          )
+      }
+      p_moran_sub <- p_moran_sub +
+        geom_line(
+          data = p_sub,
+          aes(x = band_label, y = mean_I, group = 1),
+          color = "#1a5276", linewidth = 1.1
+        ) +
+        geom_point(
+          data = p_sub,
+          aes(x = band_label, y = mean_I),
+          color = "#1a5276", size = 1.8
+        ) +
+        geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
         facet_wrap(~species_upper, ncol = 2) +
         labs(
-          title = paste0("Residual Spatial Correlogram - Moran's I (", p_label, ")"),
+          title = paste0("Residual Spatial Correlogram - Moran's I Spaghetti Plot (", p_label, ")"),
           x = "Neighborhood Distance Band",
-          y = "Posterior Mean Moran's I (95% CI)"
+          y = "Moran's I"
         ) +
         theme_bw() +
         theme(axis.text.x = element_text(angle = 30, hjust = 1))
@@ -898,6 +1012,359 @@ if (nrow(moran_i_df) > 0) {
       prior_out_dir <- file.path(base_diag_dir, p_type)
       ggsave(file.path(prior_out_dir, paste0("moran_correlogram_", p_type, ".png")), plot = p_moran_sub, width = 14, height = 12, units = "in", dpi = 300)
       ggsave(file.path(base_diag_dir, paste0("moran_correlogram_", p_type, ".png")), plot = p_moran_sub, width = 14, height = 12, units = "in", dpi = 300)
+    }
+  }
+  
+  # Species Overlay Correlogram (Mean trajectories across species on one plot per prior)
+  p_moran_species_overlay <- ggplot(moran_plot_data, aes(x = band_label, y = mean_I, group = species_upper, color = species_upper)) +
+    geom_line(linewidth = 0.9, alpha = 0.8) +
+    geom_point(size = 1.8) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
+    facet_wrap(~prior_label, ncol = 3) +
+    labs(
+      title = "Residual Spatial Autocorrelation Correlogram Across Species",
+      x = "Neighborhood Distance Band",
+      y = "Posterior Mean Moran's I",
+      color = "Species"
+    ) +
+    theme_bw() +
+    theme(legend.position = "bottom", axis.text.x = element_text(angle = 30, hjust = 1))
+  
+  ggsave(file.path(base_diag_dir, "moran_species_overlay.png"), plot = p_moran_species_overlay, width = 14, height = 6, units = "in", dpi = 300)
+}
+
+## 9. Individual Species Diagnostic Figures --------------------------------
+cat("Generating individual diagnostic plots per species folder...\n")
+for (spp in possible_bats) {
+  spp_out_dir <- file.path(base_diag_dir, spp)
+  if (!dir.exists(spp_out_dir)) {
+    dir.create(spp_out_dir, recursive = TRUE, showWarnings = FALSE)
+  }
+  spp_upper <- toupper(spp)
+  
+  # (a) Occurrence Parameters
+  occ_spp <- occ_plot_data %>% filter(species == spp)
+  if (nrow(occ_spp) > 0) {
+    p_occ_spp <- ggplot(occ_spp, aes(x = variable_label, y = mean, group = prior_label, color = prior_label)) +
+      geom_errorbar(aes(ymin = q2.5, ymax = q97.5), width = 0.2, position = position_dodge(width = 0.35)) +
+      geom_errorbar(aes(ymin = q25, ymax = q75), width = 0, position = position_dodge(width = 0.35), linewidth = 1.1) +
+      geom_point(position = position_dodge(width = 0.35), size = 2.5) +
+      geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+      labs(
+        title = paste0("Occurrence Model Covariates - ", spp_upper),
+        x = "Covariate",
+        y = "Mean (50% and 95% Credible Interval)",
+        color = "Prior"
+      ) +
+      theme_bw() +
+      theme(legend.position = "bottom", axis.text.x = element_text(angle = 30, hjust = 1))
+    
+    ggsave(file.path(spp_out_dir, paste0("occ_pars_", spp, ".png")), plot = p_occ_spp, width = 7, height = 5, units = "in", dpi = 300)
+    
+    occ_spp_main <- occ_spp %>% filter(prior_type %in% c("informative", "weakly_informative"))
+    if (nrow(occ_spp_main) > 0) {
+      p_occ_spp_main <- ggplot(occ_spp_main, aes(x = variable_label, y = mean, group = prior_label, color = prior_label)) +
+        geom_errorbar(aes(ymin = q2.5, ymax = q97.5), width = 0.2, position = position_dodge(width = 0.35)) +
+        geom_errorbar(aes(ymin = q25, ymax = q75), width = 0, position = position_dodge(width = 0.35), linewidth = 1.1) +
+        geom_point(position = position_dodge(width = 0.35), size = 2.5) +
+        geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+        labs(
+          title = paste0("Occurrence Model Covariates (Main Priors) - ", spp_upper),
+          x = "Covariate",
+          y = "Mean (50% and 95% Credible Interval)",
+          color = "Prior"
+        ) +
+        theme_bw() +
+        theme(legend.position = "bottom", axis.text.x = element_text(angle = 30, hjust = 1))
+      
+      ggsave(file.path(spp_out_dir, paste0("occ_pars_", spp, "_main.png")), plot = p_occ_spp_main, width = 7, height = 5, units = "in", dpi = 300)
+    }
+  }
+  
+  # (b) Detection Parameters
+  det_spp <- det_plot_data %>% filter(species == spp)
+  if (nrow(det_spp) > 0) {
+    p_det_spp <- ggplot(det_spp, aes(x = variable_label, y = mean)) +
+      geom_errorbar(aes(ymin = q2.5, ymax = q97.5), width = 0.2, color = "#2c3e50") +
+      geom_errorbar(aes(ymin = q25, ymax = q75), width = 0, color = "#2980b9", linewidth = 1.1) +
+      geom_point(color = "#2c3e50", size = 2.5) +
+      geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+      labs(
+        title = paste0("Detection Model Covariates (Informative Prior) - ", spp_upper),
+        x = "Covariate",
+        y = "Mean (50% and 95% Credible Interval)"
+      ) +
+      theme_bw() +
+      theme(axis.text.x = element_text(angle = 30, hjust = 1))
+    
+    ggsave(file.path(spp_out_dir, paste0("det_pars_", spp, ".png")), plot = p_det_spp, width = 7, height = 5, units = "in", dpi = 300)
+    ggsave(file.path(spp_out_dir, paste0("det_pars_", spp, "_informative.png")), plot = p_det_spp, width = 7, height = 5, units = "in", dpi = 300)
+  }
+  
+  # (c) Dynamics Parameters - Persistence (Phi)
+  phi_spp <- dyn_phi_data %>% filter(species == spp)
+  if (nrow(phi_spp) > 0) {
+    p_phi_spp <- ggplot(phi_spp, aes(x = factor(year), y = mean, group = prior_label, color = prior_label)) +
+      geom_errorbar(aes(ymin = q2.5, ymax = q97.5), width = 0.25, position = position_dodge(width = 0.35)) +
+      geom_point(position = position_dodge(width = 0.35), size = 2.5) +
+      scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
+      labs(
+        title = paste0("Regional Dynamics (Persistence / Phi) - ", spp_upper),
+        x = "Year",
+        y = "Mean Persistence Probability (95% CI)",
+        color = "Prior"
+      ) +
+      theme_bw() +
+      theme(legend.position = "bottom")
+    
+    ggsave(file.path(spp_out_dir, paste0("dyn_phi_", spp, ".png")), plot = p_phi_spp, width = 7, height = 5, units = "in", dpi = 300)
+    
+    phi_spp_main <- phi_spp %>% filter(prior_type %in% c("informative", "weakly_informative"))
+    if (nrow(phi_spp_main) > 0) {
+      p_phi_spp_main <- ggplot(phi_spp_main, aes(x = factor(year), y = mean, group = prior_label, color = prior_label)) +
+        geom_errorbar(aes(ymin = q2.5, ymax = q97.5), width = 0.25, position = position_dodge(width = 0.35)) +
+        geom_point(position = position_dodge(width = 0.35), size = 2.5) +
+        scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
+        labs(
+          title = paste0("Regional Dynamics (Persistence / Phi - Main Priors) - ", spp_upper),
+          x = "Year",
+          y = "Mean Persistence Probability (95% CI)",
+          color = "Prior"
+        ) +
+        theme_bw() +
+        theme(legend.position = "bottom")
+      
+      ggsave(file.path(spp_out_dir, paste0("dyn_phi_", spp, "_main.png")), plot = p_phi_spp_main, width = 7, height = 5, units = "in", dpi = 300)
+    }
+  }
+  
+  # (d) Dynamics Parameters - Colonization (Gamma)
+  gamma_spp <- dyn_gamma_data %>% filter(species == spp)
+  if (nrow(gamma_spp) > 0) {
+    p_gamma_spp <- ggplot(gamma_spp, aes(x = factor(year), y = mean, group = prior_label, color = prior_label)) +
+      geom_errorbar(aes(ymin = q2.5, ymax = q97.5), width = 0.25, position = position_dodge(width = 0.35)) +
+      geom_point(position = position_dodge(width = 0.35), size = 2.5) +
+      scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
+      labs(
+        title = paste0("Regional Dynamics (Colonization / Gamma) - ", spp_upper),
+        x = "Year",
+        y = "Mean Colonization Probability (95% CI)",
+        color = "Prior"
+      ) +
+      theme_bw() +
+      theme(legend.position = "bottom")
+    
+    ggsave(file.path(spp_out_dir, paste0("dyn_gamma_", spp, ".png")), plot = p_gamma_spp, width = 7, height = 5, units = "in", dpi = 300)
+    
+    gamma_spp_main <- gamma_spp %>% filter(prior_type %in% c("informative", "weakly_informative"))
+    if (nrow(gamma_spp_main) > 0) {
+      p_gamma_spp_main <- ggplot(gamma_spp_main, aes(x = factor(year), y = mean, group = prior_label, color = prior_label)) +
+        geom_errorbar(aes(ymin = q2.5, ymax = q97.5), width = 0.25, position = position_dodge(width = 0.35)) +
+        geom_point(position = position_dodge(width = 0.35), size = 2.5) +
+        scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
+        labs(
+          title = paste0("Regional Dynamics (Colonization / Gamma - Main Priors) - ", spp_upper),
+          x = "Year",
+          y = "Mean Colonization Probability (95% CI)",
+          color = "Prior"
+        ) +
+        theme_bw() +
+        theme(legend.position = "bottom")
+      
+      ggsave(file.path(spp_out_dir, paste0("dyn_gamma_", spp, "_main.png")), plot = p_gamma_spp_main, width = 7, height = 5, units = "in", dpi = 300)
+    }
+  }
+  
+  # (e) Regional Occupancy Trajectory & Trend (Psi)
+  psi_spp <- psi_trend_merged %>% filter(species == spp)
+  if (nrow(psi_spp) > 0) {
+    for (p_type in prior_types) {
+      psi_spp_p <- psi_spp %>% filter(prior_type == p_type)
+      if (nrow(psi_spp_p) > 0) {
+        p_label <- case_when(
+          p_type == "informative" ~ "Informative",
+          p_type == "weakly_informative" ~ "Weakly Informative",
+          TRUE ~ "Weakly Informative (No Idaho)"
+        )
+        p_psi_spp <- ggplot(psi_spp_p, aes(x = factor(cal_year), y = mean_regional, group = 1)) +
+          geom_ribbon(aes(ymin = q2.5, ymax = q97.5, fill = trend_status), alpha = 0.25) +
+          geom_line(aes(color = trend_status), linewidth = 0.85) +
+          geom_line(aes(y = trend_fitted), color = "black", alpha = 0.85, linewidth = 0.85, linetype = "dashed") +
+          geom_point(aes(color = trend_status), size = 2.5) +
+          scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
+          scale_color_manual(values = c("Increasing" = "#27ae60", "Decreasing" = "#c0392b", "Uncertain" = "#7f8c8d")) +
+          scale_fill_manual(values = c("Increasing" = "#27ae60", "Decreasing" = "#c0392b", "Uncertain" = "#7f8c8d")) +
+          labs(
+            title = paste0("Regional Occupancy Trajectory - ", spp_upper, " (", p_label, ")"),
+            x = "Year",
+            y = "Regional Occupancy Probability (95% CI)",
+            color = "Trend Status",
+            fill = "Trend Status"
+          ) +
+          theme_bw() +
+          theme(legend.position = "bottom")
+        
+        ggsave(file.path(spp_out_dir, paste0("psi_trend_", spp, "_", p_type, ".png")), plot = p_psi_spp, width = 7, height = 5, units = "in", dpi = 300)
+      }
+    }
+    
+    # Comparison across priors
+    p_psi_compare_spp <- ggplot(psi_spp, aes(x = factor(cal_year), y = mean_regional, group = prior_label, color = prior_label)) +
+      geom_ribbon(aes(ymin = q2.5, ymax = q97.5, fill = prior_label), alpha = 0.15, color = NA) +
+      geom_line(linewidth = 0.85) +
+      geom_point(size = 2) +
+      scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
+      labs(
+        title = paste0("Regional Occupancy Trajectory Comparison - ", spp_upper),
+        x = "Year",
+        y = "Regional Occupancy Probability (95% CI)",
+        color = "Prior",
+        fill = "Prior"
+      ) +
+      theme_bw() +
+      theme(legend.position = "bottom")
+    
+    ggsave(file.path(spp_out_dir, paste0("psi_trend_", spp, "_compare.png")), plot = p_psi_compare_spp, width = 7, height = 5, units = "in", dpi = 300)
+  }
+  
+  # (f) Annual Detection Probability Trajectory (p)
+  p_ann_spp <- p_annual_df %>% filter(species == spp, prior_type == "informative")
+  if (nrow(p_ann_spp) > 0) {
+    p_ann_spp_plot <- ggplot(p_ann_spp, aes(x = factor(year), y = mean_p, group = 1)) +
+      geom_ribbon(aes(ymin = q2.5, ymax = q97.5), alpha = 0.2, fill = "#2980b9") +
+      geom_line(color = "#2980b9", linewidth = 0.8) +
+      geom_point(color = "#2980b9", size = 2.5) +
+      scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2)) +
+      labs(
+        title = paste0("Annual Realized Detection Probabilities - ", spp_upper, " (Informative Prior)"),
+        x = "Year",
+        y = "Mean Nightly Detection Probability (95% CI)"
+      ) +
+      theme_bw()
+    
+    ggsave(file.path(spp_out_dir, paste0("p_annual_", spp, ".png")), plot = p_ann_spp_plot, width = 7, height = 5, units = "in", dpi = 300)
+    ggsave(file.path(spp_out_dir, paste0("p_annual_", spp, "_informative.png")), plot = p_ann_spp_plot, width = 7, height = 5, units = "in", dpi = 300)
+  }
+  
+  # (g) Moran's I Residual Spatial Correlogram (Spaghetti Plots)
+  moran_spp <- moran_plot_data %>% filter(species == spp)
+  moran_draws_spp <- if (!is.null(moran_draws_sub)) moran_draws_sub %>% filter(species == spp) else NULL
+  
+  if (nrow(moran_spp) > 0) {
+    # All priors comparison spaghetti plot
+    p_moran_spp_all <- ggplot()
+    if (!is.null(moran_draws_spp)) {
+      p_moran_spp_all <- p_moran_spp_all +
+        geom_line(
+          data = moran_draws_spp,
+          aes(x = band_label, y = moran_I, group = interaction(draw, prior_label), color = prior_label),
+          alpha = 0.2, linewidth = 0.4
+        )
+    }
+    p_moran_spp_all <- p_moran_spp_all +
+      geom_line(
+        data = moran_spp,
+        aes(x = band_label, y = mean_I, group = prior_label, color = prior_label),
+        linewidth = 1.2
+      ) +
+      geom_point(
+        data = moran_spp,
+        aes(x = band_label, y = mean_I, group = prior_label, color = prior_label),
+        size = 2.5
+      ) +
+      geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
+      labs(
+        title = paste0("Residual Spatial Autocorrelation Correlogram - ", spp_upper),
+        x = "Neighborhood Distance Band",
+        y = "Moran's I",
+        color = "Prior"
+      ) +
+      theme_bw() +
+      theme(legend.position = "bottom", axis.text.x = element_text(angle = 30, hjust = 1))
+    
+    ggsave(file.path(spp_out_dir, paste0("moran_correlogram_", spp, ".png")), plot = p_moran_spp_all, width = 7, height = 5, units = "in", dpi = 300)
+    ggsave(file.path(spp_out_dir, paste0("moran_correlogram_", spp, "_summary.png")), plot = p_moran_spp_all, width = 7, height = 5, units = "in", dpi = 300)
+    
+    # Main priors comparison spaghetti plot
+    moran_spp_main <- moran_spp %>% filter(prior_type %in% c("informative", "weakly_informative"))
+    moran_draws_spp_main <- if (!is.null(moran_draws_spp)) moran_draws_spp %>% filter(prior_type %in% c("informative", "weakly_informative")) else NULL
+    
+    if (nrow(moran_spp_main) > 0) {
+      p_moran_spp_main <- ggplot()
+      if (!is.null(moran_draws_spp_main)) {
+        p_moran_spp_main <- p_moran_spp_main +
+          geom_line(
+            data = moran_draws_spp_main,
+            aes(x = band_label, y = moran_I, group = interaction(draw, prior_label), color = prior_label),
+            alpha = 0.2, linewidth = 0.4
+          )
+      }
+      p_moran_spp_main <- p_moran_spp_main +
+        geom_line(
+          data = moran_spp_main,
+          aes(x = band_label, y = mean_I, group = prior_label, color = prior_label),
+          linewidth = 1.2
+        ) +
+        geom_point(
+          data = moran_spp_main,
+          aes(x = band_label, y = mean_I, group = prior_label, color = prior_label),
+          size = 2.5
+        ) +
+        geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
+        labs(
+          title = paste0("Residual Spatial Autocorrelation Correlogram (Main Priors) - ", spp_upper),
+          x = "Neighborhood Distance Band",
+          y = "Moran's I",
+          color = "Prior"
+        ) +
+        theme_bw() +
+        theme(legend.position = "bottom", axis.text.x = element_text(angle = 30, hjust = 1))
+      
+      ggsave(file.path(spp_out_dir, paste0("moran_correlogram_", spp, "_main.png")), plot = p_moran_spp_main, width = 7, height = 5, units = "in", dpi = 300)
+    }
+    
+    # Individual prior-specific spaghetti plots for that species
+    for (p_type in prior_types) {
+      moran_spp_p <- moran_spp %>% filter(prior_type == p_type)
+      draws_spp_p <- if (!is.null(moran_draws_spp)) moran_draws_spp %>% filter(prior_type == p_type) else NULL
+      
+      if (nrow(moran_spp_p) > 0) {
+        p_label <- case_when(
+          p_type == "informative" ~ "Informative",
+          p_type == "weakly_informative" ~ "Weakly Informative",
+          TRUE ~ "Weakly Informative (No Idaho)"
+        )
+        p_moran_spp_p <- ggplot()
+        if (!is.null(draws_spp_p)) {
+          p_moran_spp_p <- p_moran_spp_p +
+            geom_line(
+              data = draws_spp_p,
+              aes(x = band_label, y = moran_I, group = draw),
+              color = "#2980b9", alpha = 0.25, linewidth = 0.4
+            )
+        }
+        p_moran_spp_p <- p_moran_spp_p +
+          geom_line(
+            data = moran_spp_p,
+            aes(x = band_label, y = mean_I, group = 1),
+            color = "#1a5276", linewidth = 1.2
+          ) +
+          geom_point(
+            data = moran_spp_p,
+            aes(x = band_label, y = mean_I),
+            color = "#1a5276", size = 2.5
+          ) +
+          geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
+          labs(
+            title = paste0("Residual Spatial Correlogram - Moran's I - ", spp_upper, " (", p_label, ")"),
+            x = "Neighborhood Distance Band",
+            y = "Moran's I"
+          ) +
+          theme_bw() +
+          theme(axis.text.x = element_text(angle = 30, hjust = 1))
+        
+        ggsave(file.path(spp_out_dir, paste0("moran_correlogram_", spp, "_", p_type, ".png")), plot = p_moran_spp_p, width = 7, height = 5, units = "in", dpi = 300)
+      }
     }
   }
 }
