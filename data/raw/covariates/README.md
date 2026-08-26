@@ -4,11 +4,12 @@ This directory contains spatial and climate covariate layers from various source
 
 ## Subdirectories
 
-| Directory | Description |
-| :--- | :--- |
-| `daymet/` | Daily surface weather data downloaded via `src/04_get_daymet.py` (`daymet_sites.csv`, `daymet_output.csv` containing minimum temperature, day length, and precipitation). |
-| `LandFire/` | Existing Vegetation Type (EVT) raster/spatial data for ID, OR, and WA used to identify cliff and canyon habitats. |
-| `NABat_grid_covariates/` | Pre-aggregated NABat CONUS 10km grid-level spatial covariates (forest cover, karst, mean elevation, mean precipitation). |
+| Directory | Description | Link |
+| :--- | :--- | :--- |
+| `daymet/` | Daily surface weather data downloaded via `src/04_get_daymet.py` (`daymet_sites.csv`, `daymet_output.csv` containing minimum temperature, day length, and precipitation). | pulled from python script |
+| `LandFire/` | Existing Vegetation Type (EVT) raster/spatial data for ID, OR, and WA used to identify cliff and canyon habitats. | [landfire evt](https://www.landfire.gov/vegetation/evt) |
+| `NABat_grid_covariates/` | Pre-aggregated NABat CONUS 10km grid-level spatial covariates (forest cover, karst, mean elevation, mean precipitation). | [NABat covariates](https://www.sciencebase.gov/catalog/item/5b7b563ae4b0f5d57884615b) |
+ 
 
 ## Files Overview
 
