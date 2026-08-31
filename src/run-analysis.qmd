@@ -94,3 +94,26 @@ deployment %>%
   theme(legend.position = "bottom") +
   labs(color = "State")
 ```
+
+## Compile spatial covariates
+
+Requires layers to be pulled and stored in the `data/raw` folder. See below for required files. 
+
+| Variable     | Local File Path                                                | Download Date | Source                                   |
+|--------------|-------------------------------------------------------------------------|---------------|------------------------------------------|
+| nabat_covars | data/raw/covariates/NABat_grid_covariates/                              | *still needed*| *source link*                            |
+| conus10k     | data/raw/batgrid/complete_conus_mastersample_10km_attributed.shp        | *still needed*| *source link*                            |
+| landfire_or  | data/raw/covariates/LandFire/LF2022_OR/LC22_EVT_230.tif                 | 2026-08-19    | https://www.landfire.gov/vegetation/evt  |
+| landfire_wa  | data/raw/covariates/LandFire/LF2022_WA/LC22_EVT_230.tif                 | 2026-08-19    | https://www.landfire.gov/vegetation/evt  |
+| landfire_id  | data/raw/covariates/LandFire/LF2022_ID/LC22_EVT_230.tif                 | 2026-08-19    | https://www.landfire.gov/vegetation/evt  |
+
+```{r}
+#| label: run02
+#| warning: false
+#| eval: false
+
+# don't currently have all files
+source(here("src/02_CompileSpatialCovariates.R"))
+```
+
+Successful run of this script will output `batgrid_covars`, saved at `data/processed/occurrence/batgrid_covars.shp`
