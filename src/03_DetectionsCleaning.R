@@ -47,6 +47,7 @@ acoustics <- all_raw_acoustics %>%
       TRUE ~ ManualIDSpp1
     ),
     ManualIDSpp1 = tolower(ManualIDSpp1),
+    # Night = mdy_hms(Night),
     Night = ymd_hms(Night),
     Year = year(Night)
   )
