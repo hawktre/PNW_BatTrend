@@ -117,3 +117,119 @@ source(here("src/02_CompileSpatialCovariates.R"))
 ```
 
 Successful run of this script will output `batgrid_covars`, saved at `data/processed/occurrence/batgrid_covars.shp`
+
+## Clean detections
+
+```{r}
+#| label: run03
+#| warning: false
+
+source(here("src/03_DetectionsCleaning.R"))
+```
+
+# Get Daymet
+
+**Fetches Daymet climate data → writes to `data/daymet/`**
+
+Run once, from a terminal (not the R console):
+
+Requires `pandas` and `pydaymet` installed for whatever `python` resolves to on your system.
+
+```python -m pip install pandas
+   python -m pip install pydaymet
+   python src/04_get_daymet.py
+```
+
+## Prepare data for modeling
+
+Data are saved to `data/processed/nw_nights.rds`
+```{r}
+#| label: run05
+#| warning: false
+
+source(here("src/05_detections_modprep.R"))
+```
+
+```{r}
+#| label: fig-spatial-reps
+#| fig-cap: "Visualize how many spatial replicates in each cell"
+
+detections %>%
+  group_by(sample_unit_id, year) %>%
+  summarise(spatial_reps = n(),
+             .groups = "drop_last") %>%
+  ungroup() %>%
+  ggplot(aes(x = spatial_reps)) +
+  geom_bar() +
+  facet_wrap(~year) +
+  theme_classic()
+```
+
+## Prepare covariate data for occupancy model
+
+```{r}
+#| label: run06
+#| warning: false
+
+# don't have data yet
+source(here("src/06_occurrence_modprep.R"))
+```
+
+## Prepare data for dynamic occupancy model in Stan
+
+Are we using both autolog? and Mod?
+
+```{r}
+#| label: run07a
+#| warning: false
+#| eval: false
+
+# don't have data yet
+source(here("src/07_dynocc_autolog.R"))
+```
+
+## Prepare data for dynamic occupancy model in Stan
+
+Are we using both autolog? and Mod?
+
+```{r}
+#| label: run07b
+#| warning: false
+#| eval: false
+
+# don't have data yet
+source(here("src/07_dynoccMod.R"))
+```
+
+## Check sensitivity of model?
+
+```{r}
+#| label: run08
+#| warning: false
+#| eval: false
+
+# don't have data yet
+source(here("src/08_dynoccSensitivity.R"))
+```
+
+## stan Diagnotics
+
+```{r}
+#| label: run09
+#| warning: false
+#| eval: false
+
+# don't have data yet
+source(here("src/09_stanDiagnostics.R"))
+```
+
+## stan Maps
+
+```{r}
+#| label: run10
+#| warning: false
+#| eval: false
+
+# don't have data yet
+source(here("src/10_stanMaps.R"))
+```
