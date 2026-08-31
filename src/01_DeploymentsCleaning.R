@@ -15,11 +15,16 @@ library(sf)
 library(tigris)
 
 # Read in Required Data ---------------------------------------------------
-tblDeployment <- read.csv(here("data/raw/tables/tblDeployment.csv"))
-tblPointLocation <- read.csv(here("data/raw/tables/tblPointLocation.csv"))
-tblSite <- read.csv(here("data/raw/tables/tblSite.csv"))
-tluClutter <- read.csv(here("data/raw/tables/tluClutterType.csv"))
-tluWaterBodyType <- read.csv(here("data/raw/tables/tluWaterBodyType.csv"))
+tblDeployment <- read_csv(here("data/raw/tables/tblDeployment.csv"), 
+                          show_col_types = FALSE)
+tblPointLocation <- read_csv(here("data/raw/tables/tblPointLocation.csv"), 
+                             show_col_types = FALSE)
+tblSite <- read_csv(here("data/raw/tables/tblSite.csv"),
+                    show_col_types = FALSE)
+tluClutter <- read_csv(here("data/raw/tables/tluClutterType.csv"), 
+                       show_col_types = FALSE)
+tluWaterBodyType <- read_csv(here("data/raw/tables/tluWaterBodyType.csv"), 
+                             show_col_types = FALSE)
 
 # Join all tables together ------------------------------------------------
 all_join <- left_join(
@@ -54,6 +59,8 @@ deployment$DeploymentDate <- as_date(as_datetime(
   deployment$DeploymentDate,
   format = "%m/%d/%y %H:%M:%S"
 ))
+
+
 deployment$RecoveryDate <- as_date(as_datetime(
   deployment$RecoveryDate,
   format = "%m/%d/%y %H:%M:%S"
