@@ -114,11 +114,18 @@ daymet_sites <- detections %>%
   distinct() %>%
   mutate(night = date(night))
 
+# create file path
+daymet_filepath <- here("data/raw/covariates/daymet/daymet_sites.csv")
+
+#create filepath if it doesn't exist yet
+dir.create(dirname(daymet_filepath), recursive = TRUE, showWarnings = FALSE)
+
 write.csv(
   daymet_sites,
-  here("data/raw/covariates/daymet/daymet_sites.csv"),
+  daymet_filepath,
   row.names = F
 )
+
 # Remove WA TABR ----------------------------------------------------------
 
 ##find the record
