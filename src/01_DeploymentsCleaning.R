@@ -172,4 +172,9 @@ saveRDS(deployment, here("data/processed/detections/deployments_to2025.rds"))
    rename("night" = deployment_date)
 
  ## Save out for daymet
- write_csv(daymet_sites, here("data/raw/covariates/daymet/daymet_sites.csv"))
+daymet_filepath <- here("data/raw/covariates/daymet/daymet_sites.csv")
+
+#create filepath if it doesn't exist yet
+dir.create(dirname(daymet_filepath), recursive = TRUE, showWarnings = FALSE)
+
+write_csv(daymet_sites, daymet_filepath)
