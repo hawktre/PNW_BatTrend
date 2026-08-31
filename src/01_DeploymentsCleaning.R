@@ -100,6 +100,7 @@ deployment <- deployment %>%
 ### Create Water Indicator
 deployment <- deployment %>%
   mutate(water_ind = if_else(WaterBodyType == "None", 0, 1))
+
 ### Correct Water Indicator NA's
 deployment <- deployment %>%
   mutate(
@@ -164,11 +165,11 @@ deployment %>%
 saveRDS(deployment, here("data/processed/detections/deployments_to2025.rds"))
 
 
-# # Save out sites for daymet -----------------------------------------------
-# daymet_sites <- deployment %>%
-#   select(location_name, deployment_date, latitude, longitude) %>%
-#   distinct() |>
-#   rename("night" = deployment_date)
+# Save out sites for daymet -----------------------------------------------
+ daymet_sites <- deployment %>%
+   select(location_name, deployment_date, latitude, longitude) %>%
+   distinct() %>% 
+   rename("night" = deployment_date)
 
-# ## Save out for daymet
-# write_csv(daymet_sites, here("data/raw/covariates/daymet/daymet_sites.csv"))
+ ## Save out for daymet
+ write_csv(daymet_sites, here("data/raw/covariates/daymet/daymet_sites.csv"))
