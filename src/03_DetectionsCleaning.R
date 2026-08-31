@@ -16,7 +16,10 @@ deployment <- readRDS(here("data/processed/detections/deployments_to2025.rds"))
 
 # Read in detection data --------------------------------------------------
 ## Read in all matching calls files dynamically
-calls_files <- list.files(path = here("data/raw/tables"), pattern = "^calls_.*\\.csv$", full.names = TRUE)
+calls_files <- list.files(path = here("data/raw/tables"), 
+                          pattern = "^calls_.*\\.csv$", 
+                          full.names = TRUE)
+
 all_raw_acoustics <- map_df(calls_files, function(f) {
   df <- data.table::fread(f, select = c("DeploymentID", "Night", "ManualIDSpp1"))
   df$DeploymentID <- as.integer(df$DeploymentID)
@@ -44,7 +47,7 @@ acoustics <- all_raw_acoustics %>%
       TRUE ~ ManualIDSpp1
     ),
     ManualIDSpp1 = tolower(ManualIDSpp1),
-    Night = mdy_hms(Night),
+    Night = ymd_hms(Night),
     Year = year(Night)
   )
 
