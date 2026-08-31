@@ -29,6 +29,7 @@ nabat_covars <- read_csv(
   "data/raw/covariates/NABat_grid_covariates/Conus_10km_covs.csv",
   show_col_types = FALSE)
 
+# bat grid pulled from https://www.sciencebase.gov/catalog/item/5b7b563ae4b0f5d57884615b
 conus10k <- read_sf(here(
   "data/raw/batgrid/conus_mastersample_10km_attributed.shp"))
 
@@ -82,9 +83,6 @@ nabat_pnw <- nabat_covars %>%
 #     geometry
 #   )
 
-
-conus_grts_key <- conus10k %>%
-  select(CONUS_10KM, GRTS_ID)
 
 ## Join with conus and do some formatting
 conus_pnw_covars <- nabat_pnw %>%
