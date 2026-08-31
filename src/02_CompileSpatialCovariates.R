@@ -18,8 +18,12 @@ nabat_covars <- st_read(
   layer = "NABat_grid_covariates"
 )
 ## conus_grts key
+# conus10k <- read_sf(here(
+#   "data/raw/batgrid/complete_conus_mastersample_10km_attributed.shp"
+# ))
+
 conus10k <- read_sf(here(
-  "data/raw/batgrid/complete_conus_mastersample_10km_attributed.shp"
+  "data/raw/batgrid/conus_mastersample_10km_attributed.shp"
 ))
 
 ##Landfire gap cover
