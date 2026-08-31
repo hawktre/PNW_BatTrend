@@ -97,15 +97,15 @@ deployment %>%
 
 ## Compile spatial covariates
 
-Requires layers to be pulled and stored in the `data/raw` folder. See below for required files. 
+Requires layers to be pulled and stored in the `data/raw/` folder. See below for required files. 
 
 | Variable     | Local File Path                                                | Download Date | Source                                   |
 |--------------|-------------------------------------------------------------------------|---------------|------------------------------------------|
-| nabat_covars | data/raw/covariates/NABat_grid_covariates/                              | *still needed*| *source link*                            |
-| conus10k     | data/raw/batgrid/complete_conus_mastersample_10km_attributed.shp        | *still needed*| *source link*                            |
-| landfire_or  | data/raw/covariates/LandFire/LF2022_OR/LC22_EVT_230.tif                 | 2026-08-19    | https://www.landfire.gov/vegetation/evt  |
-| landfire_wa  | data/raw/covariates/LandFire/LF2022_WA/LC22_EVT_230.tif                 | 2026-08-19    | https://www.landfire.gov/vegetation/evt  |
-| landfire_id  | data/raw/covariates/LandFire/LF2022_ID/LC22_EVT_230.tif                 | 2026-08-19    | https://www.landfire.gov/vegetation/evt  |
+| nabat_covars | covariates/NABat_grid_covariates/                              | *still needed*| *source link*                            |
+| conus10k     | batgrid/complete_conus_mastersample_10km_attributed.shp        | *still needed*| *source link*                            |
+| landfire_or  | covariates/LandFire/LF2022_OR/LC22_EVT_230.tif                 | 2026-08-19    | [landfire](https://www.landfire.gov/vegetation/evt)  |
+| landfire_wa  | covariates/LandFire/LF2022_WA/LC22_EVT_230.tif                 | 2026-08-19    | [landfire](https://www.landfire.gov/vegetation/evt)  |
+| landfire_id  | covariates/LandFire/LF2022_ID/LC22_EVT_230.tif                 | 2026-08-19    |[landfire](https://www.landfire.gov/vegetation/evt) |
 
 ```{r}
 #| label: run02
@@ -135,9 +135,16 @@ Run once, from a terminal (not the R console):
 
 Requires `pandas` and `pydaymet` installed for whatever `python` resolves to on your system.
 
-```python -m pip install pandas
-   python -m pip install pydaymet
-   python src/04_get_daymet.py
+```
+python -m pip install pandas
+```
+
+```
+python -m pip install pydaymet
+```
+
+```
+python src/04_get_daymet.py
 ```
 
 ## Prepare data for modeling
@@ -146,6 +153,7 @@ Data are saved to `data/processed/nw_nights.rds`
 ```{r}
 #| label: run05
 #| warning: false
+#| message: false
 
 source(here("src/05_detections_modprep.R"))
 ```
@@ -154,15 +162,11 @@ source(here("src/05_detections_modprep.R"))
 #| label: fig-spatial-reps
 #| fig-cap: "Visualize how many spatial replicates in each cell"
 
-detections %>%
-  group_by(sample_unit_id, year) %>%
-  summarise(spatial_reps = n(),
-             .groups = "drop_last") %>%
-  ungroup() %>%
-  ggplot(aes(x = spatial_reps)) +
-  geom_bar() +
-  facet_wrap(~year) +
-  theme_classic()
+ggplot(spatial_reps_summary, aes(x = spatial_reps)) + 
+    geom_bar(color = "black", 
+             fill = "darkgray") + 
+    facet_wrap(~year) +
+    theme_bw() + theme(panel.grid = element_blank())
 ```
 
 ## Prepare covariate data for occupancy model
@@ -170,6 +174,7 @@ detections %>%
 ```{r}
 #| label: run06
 #| warning: false
+#| eval: false
 
 # don't have data yet
 source(here("src/06_occurrence_modprep.R"))
