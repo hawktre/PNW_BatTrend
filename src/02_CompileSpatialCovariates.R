@@ -98,23 +98,23 @@ conus_pnw_covars <- nabat_pnw %>%
     long,
     lat,
     karst,
-    prop_forest_2005,
-    prop_forest_2010,
-    prop_forest_2015,
-    prop_forest_2020,
-    prop_wetland_2005,
-    prop_wetland_2010,
-    prop_wetland_2015,
-    prop_wetland_2020,
+    "p_forest05" = prop_forest_2005,
+    "p_forest10" = prop_forest_2010,
+    "p_forest15" = prop_forest_2015,
+    "p_forest20" = prop_forest_2020,
+    "p_wetland05" = prop_wetland_2005,
+    "p_wetland10" = prop_wetland_2010,
+    "p_wetland15" = prop_wetland_2015,
+    "p_wetland20" = prop_wetland_2020,
     temp_mean,
     precip_mean,
     DEM_max,
     phys_div,
     dist_mines,
-    prop_water_2005,
-    prop_water_2010,
-    prop_water_2015,
-    prop_water_2020,
+    "p_water05" = prop_water_2005,
+    "p_water10" =  prop_water_2010,
+    "p_water15" =  prop_water_2015,
+    "p_water20" =  prop_water_2020,
     geometry
   )
 
@@ -154,4 +154,6 @@ covars <- covars %>%
 
 
 # Write out the results ---------------------------------------------------
-write_sf(covars, here("data/processed/occurrence/batgrid_covars.shp"))
+write_sf(covars %>% select(-ID), 
+         here("data/processed/occurrence/batgrid_covars.shp"), 
+         delete_layer = TRUE)
