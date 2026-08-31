@@ -55,16 +55,10 @@ deployment <- all_join %>%
 
 
 # Make Dates ----------------------------------------
-deployment$DeploymentDate <- as_date(as_datetime(
-  deployment$DeploymentDate,
-  format = "%m/%d/%y %H:%M:%S"
-))
+deployment$DeploymentDate <- as_date(deployment$DeploymentDate)
 
+deployment$RecoveryDate <- as_date(deployment$RecoveryDate)
 
-deployment$RecoveryDate <- as_date(as_datetime(
-  deployment$RecoveryDate,
-  format = "%m/%d/%y %H:%M:%S"
-))
 deployment$year <- year(deployment$DeploymentDate)
 
 # Create State column -----------------------------------------------------
