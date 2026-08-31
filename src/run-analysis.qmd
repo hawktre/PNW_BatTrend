@@ -1,0 +1,96 @@
+---
+title: "Run PNW Bat Analysis"
+author: "DAU, modified from Trent VanHawkins"
+date: "`r Sys.Date()`"
+format: 
+  html:
+    lightbox: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(here)
+library(tidyverse)
+library(sf)
+```
+
+# PNW Bat Trend Analysis
+
+## Extract tables
+
+Databases are copied from the BatHub Box folders to `PNW_BatTrend/data/raw/databases`. The first script, `00_ExportTables_alt.R`, will export required tables from the databases below into the `data/raw/tables` folder. 
+
+### Databases Used in Analysis
+
+Adjust source script, `00_ExportTables_alt.R`, if new data exists or filenames have changed. 
+
+| Database File | Purpose / Coverage | Date Last Modified |
+|---------------|-------------------|------|
+| `PNW_BatHub_Database_20260414.accdb` | Main BatHub database containing survey, site, and metadata records. | 8/26/2026 |
+| `PNW_BatHub_Database_AcousticOutput_2016-2023.accdb` | Acoustic processing outputs for monitoring data collected from 2016-2023. |2/4/2026 |
+| `PNW_BatHub_Database_AcousticOutput_2024.accdb` | Acoustic processing outputs for 2024 monitoring data. | 4/13/2026 |
+| `PNW_BatHub_Database_AcousticOutput_2025.accdb` | Acoustic processing outputs for 2025 monitoring data. | 4/13/2026 |
+| `PNW_BatHub_Database_AcousticOutput_Idaho_2025.accdb` | Acoustic processing outputs for Idaho 2025 monitoring data. | 8/26/2026 |
+
+```{r}
+#| label: run00
+#| eval: false
+source(here("src/00_ExportTables_alt.R"))
+```
+
+## Clean deployments
+
+```{r}
+#| label: run01
+#| warning: false
+
+source(here("src/01_DeploymentsCleaning.R"))
+```
+
+### Missing sites
+
+```{r}
+#| label: run01Missing
+#| echo: false
+#| message: false
+
+missing_sites <- read_csv(here("data/processed/detections/sites_missing_covars.csv"), 
+                               show_col_types = FALSE)
+```
+
+Missing data were saved at `data/processed/detections/sites_missing_covars.csv`. 
+
+```{r}
+#| label: fig-missing-covars
+#| echo: false
+#| fig-cap: "Missing clutter or waterbody"
+
+missing_sites %>%
+  st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326) %>%
+  ggplot() +
+  geom_sf(data = states_map, fill = "gray90", color = "black") +
+  geom_sf(aes(color = factor(year)))
+
+```
+
+### Available data
+
+```{r}
+#| label: fig-deployment-map
+#| echo: false
+#| fig-cap: "Deployment data across Idaho, Oregon, and Washington"
+
+deployment %>%
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>%
+  ggplot() +
+  geom_sf(data = states_map, fill = "gray90", color = "black") +
+  geom_sf(aes(color = state)) +
+  facet_wrap(~year) +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  labs(color = "State")
+```
