@@ -16,7 +16,6 @@ library(cmdstanr)
 library(bayesplot)
 library(posterior)
 library(tidybayes)
-library(sf)
 
 # Directories Setup -------------------------------------------------------
 fits_dir <- here("data/processed/results/stan/fits")
@@ -92,72 +91,12 @@ stan_data_list <- list(
   }
 )
 
-# Spatial Setup for Moran's I --------------------------------------------
-nw_grid <- readRDS(here("data/processed/occurrence/nw_grid.rds"))
-index_keys <- readRDS(here("data/processed/results/stan/index_keys.rds"))
-index_keys_sens_path <- here("data/processed/results/stan/index_keys_sensitivity.rds")
-index_keys_sens <- if (file.exists(index_keys_sens_path)) readRDS(index_keys_sens_path) else NULL
-
-# Full grid distance matrix
-grid_full <- nw_grid %>% filter(sample_unit_id %in% index_keys$site_ids) %>% arrange(match(sample_unit_id, index_keys$site_ids))
-cents_full <- suppressWarnings(sf::st_centroid(grid_full))
-d_full <- units::drop_units(sf::st_distance(cents_full)) / 1000 # in km
-diag(d_full) <- 0
-
-# Sensitivity grid distance matrix
-d_sens <- if (!is.null(index_keys_sens)) {
-  grid_sens <- nw_grid %>% filter(sample_unit_id %in% index_keys_sens$site_ids) %>% arrange(match(sample_unit_id, index_keys_sens$site_ids))
-  cents_sens <- suppressWarnings(sf::st_centroid(grid_sens))
-  d_s <- units::drop_units(sf::st_distance(cents_sens)) / 1000 # in km
-  diag(d_s) <- 0
-  d_s
-} else {
-  NULL
-}
-
-# Distance bands for spatial correlogram (10 km to 50 km)
-distance_bands <- list(
-  list(min = 0, max = 10, label = "0-10 km", mid = 5),
-  list(min = 10, max = 20, label = "10-20 km", mid = 15),
-  list(min = 20, max = 30, label = "20-30 km", mid = 25),
-  list(min = 30, max = 40, label = "30-40 km", mid = 35),
-  list(min = 40, max = 50, label = "40-50 km", mid = 45)
-)
-
-# Vectorized helper function to compute Moran's I across MCMC draws
-calc_moran_draws <- function(Z_mat, dist_mat, d_min, d_max, row_standardize = TRUE) {
-  n <- ncol(Z_mat)
-  W <- matrix(0, nrow = n, ncol = n)
-  if (d_min == 0) {
-    W[dist_mat <= d_max & dist_mat > 0] <- 1
-  } else {
-    W[dist_mat > d_min & dist_mat <= d_max] <- 1
-  }
-  
-  if (sum(W) == 0) return(rep(NA_real_, nrow(Z_mat)))
-  
-  if (row_standardize) {
-    rs <- rowSums(W)
-    rs[rs == 0] <- 1
-    W <- W / rs
-  }
-  s0 <- sum(W)
-  
-  Z_centered <- Z_mat - rowMeans(Z_mat)
-  numer <- rowSums((Z_centered %*% t(W)) * Z_centered)
-  denom <- rowSums(Z_centered^2)
-  
-  return((n / s0) * (numer / denom))
-}
-
 # Storage for results -----------------------------------------------------
 all_res_list     <- list()
 psi_full_list    <- list()
 trend_full_list  <- list()
 p_overall_list   <- list()
 p_annual_list    <- list()
-moran_i_list     <- list()
-moran_draws_list <- list()
 
 # Loop Over Species and Priors --------------------------------------------
 for (spp in possible_bats) {
@@ -425,57 +364,6 @@ for (spp in possible_bats) {
       warning(sprintf("Detection probability calculation failed for %s (%s): %s", spp, prior, e$message))
     })
     
-    # 5. Moran's I Residual Spatial Autocorrelation --------------------------
-    cat("  Computing Moran's I correlogram (10-50 km)...\n")
-    tryCatch({
-      if ("occ_res" %in% fit$metadata()$stan_variables) {
-        occ_res_mat <- fit$draws("occ_res", format = "matrix")
-        n_draws <- nrow(occ_res_mat)
-        
-        is_sens <- prior == "weakly_informative_sensitivity"
-        d_mat_use <- if (is_sens && !is.null(d_sens)) d_sens else d_full
-        n_sites_use <- nrow(d_mat_use)
-        n_years_use <- ncol(occ_res_mat) / n_sites_use
-        
-        occ_res_arr <- array(as.vector(occ_res_mat), dim = c(n_draws, n_sites_use, n_years_use))
-        site_res_per_draw <- apply(occ_res_arr, c(1, 2), mean)
-        
-        # Compute draw-level Moran's I across distance bands
-        moran_draws_spp <- map_dfr(distance_bands, function(b) {
-          i_draws <- calc_moran_draws(site_res_per_draw, d_mat_use, b$min, b$max)
-          tibble(
-            species    = spp,
-            prior_type = prior,
-            band_label = b$label,
-            dist_min   = b$min,
-            dist_max   = b$max,
-            dist_mid   = b$mid,
-            draw       = seq_along(i_draws),
-            moran_I    = i_draws
-          )
-        })
-        moran_draws_list[[paste(spp, prior, sep = "_")]] <- moran_draws_spp
-
-        # Summary statistics per band
-        moran_spp_list <- moran_draws_spp %>%
-          group_by(species, prior_type, band_label, dist_min, dist_max, dist_mid) %>%
-          summarise(
-            mean_I = mean(moran_I, na.rm = TRUE),
-            sd_I   = sd(moran_I, na.rm = TRUE),
-            q2.5   = quantile(moran_I, 0.025, na.rm = TRUE, names = FALSE),
-            q25    = quantile(moran_I, 0.25, na.rm = TRUE, names = FALSE),
-            q50    = quantile(moran_I, 0.50, na.rm = TRUE, names = FALSE),
-            q75    = quantile(moran_I, 0.75, na.rm = TRUE, names = FALSE),
-            q97.5  = quantile(moran_I, 0.975, na.rm = TRUE, names = FALSE),
-            .groups = "drop"
-          )
-        moran_i_list[[paste(spp, prior, sep = "_")]] <- moran_spp_list
-        rm(occ_res_mat, occ_res_arr, site_res_per_draw)
-      }
-    }, error = function(e) {
-      warning(sprintf("Moran's I calculation failed for %s (%s): %s", spp, prior, e$message))
-    })
-    
     rm(fit)
     gc()
   }
@@ -487,8 +375,6 @@ psi_full_df    <- bind_rows(psi_full_list)
 trend_full_df  <- bind_rows(trend_full_list)
 p_overall_df   <- bind_rows(p_overall_list)
 p_annual_df    <- bind_rows(p_annual_list)
-moran_i_df     <- bind_rows(moran_i_list)
-moran_draws_df <- bind_rows(moran_draws_list)
 
 if (nrow(all_res_df) == 0) {
   stop("No Stan fits were found to summarize. Please check that fits exist in data/processed/results/stan/fits/.")
@@ -500,14 +386,11 @@ saveRDS(psi_full_df, file.path(base_diag_dir, "psi_full_stan.rds"))
 saveRDS(trend_full_df, file.path(base_diag_dir, "trend_full_stan.rds"))
 if (nrow(p_overall_df) > 0)   saveRDS(p_overall_df, file.path(base_diag_dir, "p_overall_stan.rds"))
 if (nrow(p_annual_df) > 0)    saveRDS(p_annual_df, file.path(base_diag_dir, "p_annual_stan.rds"))
-if (nrow(moran_i_df) > 0)     saveRDS(moran_i_df, file.path(base_diag_dir, "moran_i_stan.rds"))
-if (nrow(moran_draws_df) > 0) saveRDS(moran_draws_df, file.path(base_diag_dir, "moran_draws_stan.rds"))
 
 write_csv(all_res_df, file.path(base_diag_dir, "stan_diagnostics_summary.csv"))
 write_csv(trend_full_df, file.path(base_diag_dir, "stan_trend_summary.csv"))
 if (nrow(p_overall_df) > 0) write_csv(p_overall_df, file.path(base_diag_dir, "stan_p_overall_summary.csv"))
 if (nrow(p_annual_df) > 0) write_csv(p_annual_df, file.path(base_diag_dir, "stan_p_annual_summary.csv"))
-if (nrow(moran_i_df) > 0)  write_csv(moran_i_df, file.path(base_diag_dir, "stan_moran_i_summary.csv"))
 
 cat("\nSummary tables saved to:", base_diag_dir, "\n")
 
@@ -856,184 +739,7 @@ if (nrow(p_annual_df) > 0) {
   ggsave(file.path(base_diag_dir, "informative", "p_annual_informative.png"), plot = p_annual_plot, width = 14, height = 12, units = "in", dpi = 300)
 }
 
-## 8. Moran's I Residual Spatial Correlograms (10 to 50 km) ----------------
-if (nrow(moran_i_df) > 0) {
-  cat("Generating Moran's I residual spatial correlogram spaghetti plots...\n")
-  
-  band_levels <- sapply(distance_bands, function(b) b$label)
-  
-  moran_plot_data <- moran_i_df %>%
-    mutate(
-      prior_label = case_when(
-        prior_type == "informative" ~ "Informative",
-        prior_type == "weakly_informative" ~ "Weakly Informative",
-        TRUE ~ "Weakly Informative (No Idaho)"
-      ),
-      species_upper = toupper(species),
-      band_label = factor(band_label, levels = band_levels)
-    )
-  
-  # Subsample draws for spaghetti lines (100 draws per species & prior)
-  if (nrow(moran_draws_df) > 0) {
-    set.seed(42)
-    moran_draws_plot_data <- moran_draws_df %>%
-      mutate(
-        prior_label = case_when(
-          prior_type == "informative" ~ "Informative",
-          prior_type == "weakly_informative" ~ "Weakly Informative",
-          TRUE ~ "Weakly Informative (No Idaho)"
-        ),
-        species_upper = toupper(species),
-        band_label = factor(band_label, levels = band_levels)
-      )
-    
-    unique_draws <- unique(moran_draws_plot_data$draw)
-    sample_draw_ids <- sample(unique_draws, size = min(100, length(unique_draws)))
-    moran_draws_sub <- moran_draws_plot_data %>%
-      filter(draw %in% sample_draw_ids)
-  } else {
-    moran_draws_sub <- NULL
-  }
-  
-  # All priors (3 priors)
-  p_moran_all <- ggplot()
-  if (!is.null(moran_draws_sub)) {
-    p_moran_all <- p_moran_all +
-      geom_line(
-        data = moran_draws_sub,
-        aes(x = band_label, y = moran_I, group = interaction(draw, prior_label), color = prior_label),
-        alpha = 0.12, linewidth = 0.35
-      )
-  }
-  p_moran_all <- p_moran_all +
-    geom_line(
-      data = moran_plot_data,
-      aes(x = band_label, y = mean_I, group = prior_label, color = prior_label),
-      linewidth = 1.1
-    ) +
-    geom_point(
-      data = moran_plot_data,
-      aes(x = band_label, y = mean_I, group = prior_label, color = prior_label),
-      size = 1.8
-    ) +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
-    facet_wrap(~species_upper, ncol = 2) +
-    labs(
-      title = "Residual Spatial Autocorrelation Correlogram (Moran's I Spaghetti Plot)",
-      x = "Neighborhood Distance Band",
-      y = "Moran's I",
-      color = "Prior"
-    ) +
-    theme_bw() +
-    theme(legend.position = "bottom", axis.text.x = element_text(angle = 30, hjust = 1))
-  
-  ggsave(file.path(base_diag_dir, "moran_correlogram_summary.png"), plot = p_moran_all, width = 14, height = 12, units = "in", dpi = 300)
-  
-  # Main priors only (without sensitivity)
-  moran_plot_data_main <- moran_plot_data %>% filter(prior_type %in% c("informative", "weakly_informative"))
-  moran_draws_sub_main <- if (!is.null(moran_draws_sub)) moran_draws_sub %>% filter(prior_type %in% c("informative", "weakly_informative")) else NULL
-  
-  p_moran_main <- ggplot()
-  if (!is.null(moran_draws_sub_main)) {
-    p_moran_main <- p_moran_main +
-      geom_line(
-        data = moran_draws_sub_main,
-        aes(x = band_label, y = moran_I, group = interaction(draw, prior_label), color = prior_label),
-        alpha = 0.15, linewidth = 0.35
-      )
-  }
-  p_moran_main <- p_moran_main +
-    geom_line(
-      data = moran_plot_data_main,
-      aes(x = band_label, y = mean_I, group = prior_label, color = prior_label),
-      linewidth = 1.1
-    ) +
-    geom_point(
-      data = moran_plot_data_main,
-      aes(x = band_label, y = mean_I, group = prior_label, color = prior_label),
-      size = 1.8
-    ) +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
-    facet_wrap(~species_upper, ncol = 2) +
-    labs(
-      title = "Residual Spatial Autocorrelation Correlogram (Informative vs. Weakly Informative)",
-      x = "Neighborhood Distance Band",
-      y = "Moran's I",
-      color = "Prior"
-    ) +
-    theme_bw() +
-    theme(legend.position = "bottom", axis.text.x = element_text(angle = 30, hjust = 1))
-  
-  ggsave(file.path(base_diag_dir, "moran_correlogram_summary_main.png"), plot = p_moran_main, width = 14, height = 12, units = "in", dpi = 300)
-  ggsave(file.path(base_diag_dir, "moran_correlogram_summary_nosens.png"), plot = p_moran_main, width = 14, height = 12, units = "in", dpi = 300)
-  
-  # Prior-specific correlogram plots
-  for (p_type in prior_types) {
-    p_sub <- moran_plot_data %>% filter(prior_type == p_type)
-    draws_p_sub <- if (!is.null(moran_draws_sub)) moran_draws_sub %>% filter(prior_type == p_type) else NULL
-    
-    if (nrow(p_sub) > 0) {
-      p_label <- case_when(
-        p_type == "informative" ~ "Informative",
-        p_type == "weakly_informative" ~ "Weakly Informative",
-        TRUE ~ "Weakly Informative (No Idaho)"
-      )
-      
-      p_moran_sub <- ggplot()
-      if (!is.null(draws_p_sub)) {
-        p_moran_sub <- p_moran_sub +
-          geom_line(
-            data = draws_p_sub,
-            aes(x = band_label, y = moran_I, group = draw),
-            color = "#2980b9", alpha = 0.15, linewidth = 0.35
-          )
-      }
-      p_moran_sub <- p_moran_sub +
-        geom_line(
-          data = p_sub,
-          aes(x = band_label, y = mean_I, group = 1),
-          color = "#1a5276", linewidth = 1.1
-        ) +
-        geom_point(
-          data = p_sub,
-          aes(x = band_label, y = mean_I),
-          color = "#1a5276", size = 1.8
-        ) +
-        geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
-        facet_wrap(~species_upper, ncol = 2) +
-        labs(
-          title = paste0("Residual Spatial Correlogram - Moran's I Spaghetti Plot (", p_label, ")"),
-          x = "Neighborhood Distance Band",
-          y = "Moran's I"
-        ) +
-        theme_bw() +
-        theme(axis.text.x = element_text(angle = 30, hjust = 1))
-      
-      prior_out_dir <- file.path(base_diag_dir, p_type)
-      ggsave(file.path(prior_out_dir, paste0("moran_correlogram_", p_type, ".png")), plot = p_moran_sub, width = 14, height = 12, units = "in", dpi = 300)
-      ggsave(file.path(base_diag_dir, paste0("moran_correlogram_", p_type, ".png")), plot = p_moran_sub, width = 14, height = 12, units = "in", dpi = 300)
-    }
-  }
-  
-  # Species Overlay Correlogram (Mean trajectories across species on one plot per prior)
-  p_moran_species_overlay <- ggplot(moran_plot_data, aes(x = band_label, y = mean_I, group = species_upper, color = species_upper)) +
-    geom_line(linewidth = 0.9, alpha = 0.8) +
-    geom_point(size = 1.8) +
-    geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
-    facet_wrap(~prior_label, ncol = 3) +
-    labs(
-      title = "Residual Spatial Autocorrelation Correlogram Across Species",
-      x = "Neighborhood Distance Band",
-      y = "Posterior Mean Moran's I",
-      color = "Species"
-    ) +
-    theme_bw() +
-    theme(legend.position = "bottom", axis.text.x = element_text(angle = 30, hjust = 1))
-  
-  ggsave(file.path(base_diag_dir, "moran_species_overlay.png"), plot = p_moran_species_overlay, width = 14, height = 6, units = "in", dpi = 300)
-}
-
-## 9. Individual Species Diagnostic Figures --------------------------------
+## 8. Individual Species Diagnostic Figures --------------------------------
 cat("Generating individual diagnostic plots per species folder...\n")
 for (spp in possible_bats) {
   spp_out_dir <- file.path(base_diag_dir, spp)
@@ -1244,128 +950,6 @@ for (spp in possible_bats) {
     
     ggsave(file.path(spp_out_dir, paste0("p_annual_", spp, ".png")), plot = p_ann_spp_plot, width = 7, height = 5, units = "in", dpi = 300)
     ggsave(file.path(spp_out_dir, paste0("p_annual_", spp, "_informative.png")), plot = p_ann_spp_plot, width = 7, height = 5, units = "in", dpi = 300)
-  }
-  
-  # (g) Moran's I Residual Spatial Correlogram (Spaghetti Plots)
-  moran_spp <- moran_plot_data %>% filter(species == spp)
-  moran_draws_spp <- if (!is.null(moran_draws_sub)) moran_draws_sub %>% filter(species == spp) else NULL
-  
-  if (nrow(moran_spp) > 0) {
-    # All priors comparison spaghetti plot
-    p_moran_spp_all <- ggplot()
-    if (!is.null(moran_draws_spp)) {
-      p_moran_spp_all <- p_moran_spp_all +
-        geom_line(
-          data = moran_draws_spp,
-          aes(x = band_label, y = moran_I, group = interaction(draw, prior_label), color = prior_label),
-          alpha = 0.2, linewidth = 0.4
-        )
-    }
-    p_moran_spp_all <- p_moran_spp_all +
-      geom_line(
-        data = moran_spp,
-        aes(x = band_label, y = mean_I, group = prior_label, color = prior_label),
-        linewidth = 1.2
-      ) +
-      geom_point(
-        data = moran_spp,
-        aes(x = band_label, y = mean_I, group = prior_label, color = prior_label),
-        size = 2.5
-      ) +
-      geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
-      labs(
-        title = paste0("Residual Spatial Autocorrelation Correlogram - ", spp_upper),
-        x = "Neighborhood Distance Band",
-        y = "Moran's I",
-        color = "Prior"
-      ) +
-      theme_bw() +
-      theme(legend.position = "bottom", axis.text.x = element_text(angle = 30, hjust = 1))
-    
-    ggsave(file.path(spp_out_dir, paste0("moran_correlogram_", spp, ".png")), plot = p_moran_spp_all, width = 7, height = 5, units = "in", dpi = 300)
-    ggsave(file.path(spp_out_dir, paste0("moran_correlogram_", spp, "_summary.png")), plot = p_moran_spp_all, width = 7, height = 5, units = "in", dpi = 300)
-    
-    # Main priors comparison spaghetti plot
-    moran_spp_main <- moran_spp %>% filter(prior_type %in% c("informative", "weakly_informative"))
-    moran_draws_spp_main <- if (!is.null(moran_draws_spp)) moran_draws_spp %>% filter(prior_type %in% c("informative", "weakly_informative")) else NULL
-    
-    if (nrow(moran_spp_main) > 0) {
-      p_moran_spp_main <- ggplot()
-      if (!is.null(moran_draws_spp_main)) {
-        p_moran_spp_main <- p_moran_spp_main +
-          geom_line(
-            data = moran_draws_spp_main,
-            aes(x = band_label, y = moran_I, group = interaction(draw, prior_label), color = prior_label),
-            alpha = 0.2, linewidth = 0.4
-          )
-      }
-      p_moran_spp_main <- p_moran_spp_main +
-        geom_line(
-          data = moran_spp_main,
-          aes(x = band_label, y = mean_I, group = prior_label, color = prior_label),
-          linewidth = 1.2
-        ) +
-        geom_point(
-          data = moran_spp_main,
-          aes(x = band_label, y = mean_I, group = prior_label, color = prior_label),
-          size = 2.5
-        ) +
-        geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
-        labs(
-          title = paste0("Residual Spatial Autocorrelation Correlogram (Main Priors) - ", spp_upper),
-          x = "Neighborhood Distance Band",
-          y = "Moran's I",
-          color = "Prior"
-        ) +
-        theme_bw() +
-        theme(legend.position = "bottom", axis.text.x = element_text(angle = 30, hjust = 1))
-      
-      ggsave(file.path(spp_out_dir, paste0("moran_correlogram_", spp, "_main.png")), plot = p_moran_spp_main, width = 7, height = 5, units = "in", dpi = 300)
-    }
-    
-    # Individual prior-specific spaghetti plots for that species
-    for (p_type in prior_types) {
-      moran_spp_p <- moran_spp %>% filter(prior_type == p_type)
-      draws_spp_p <- if (!is.null(moran_draws_spp)) moran_draws_spp %>% filter(prior_type == p_type) else NULL
-      
-      if (nrow(moran_spp_p) > 0) {
-        p_label <- case_when(
-          p_type == "informative" ~ "Informative",
-          p_type == "weakly_informative" ~ "Weakly Informative",
-          TRUE ~ "Weakly Informative (No Idaho)"
-        )
-        p_moran_spp_p <- ggplot()
-        if (!is.null(draws_spp_p)) {
-          p_moran_spp_p <- p_moran_spp_p +
-            geom_line(
-              data = draws_spp_p,
-              aes(x = band_label, y = moran_I, group = draw),
-              color = "#2980b9", alpha = 0.25, linewidth = 0.4
-            )
-        }
-        p_moran_spp_p <- p_moran_spp_p +
-          geom_line(
-            data = moran_spp_p,
-            aes(x = band_label, y = mean_I, group = 1),
-            color = "#1a5276", linewidth = 1.2
-          ) +
-          geom_point(
-            data = moran_spp_p,
-            aes(x = band_label, y = mean_I),
-            color = "#1a5276", size = 2.5
-          ) +
-          geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
-          labs(
-            title = paste0("Residual Spatial Correlogram - Moran's I - ", spp_upper, " (", p_label, ")"),
-            x = "Neighborhood Distance Band",
-            y = "Moran's I"
-          ) +
-          theme_bw() +
-          theme(axis.text.x = element_text(angle = 30, hjust = 1))
-        
-        ggsave(file.path(spp_out_dir, paste0("moran_correlogram_", spp, "_", p_type, ".png")), plot = p_moran_spp_p, width = 7, height = 5, units = "in", dpi = 300)
-      }
-    }
   }
 }
 
