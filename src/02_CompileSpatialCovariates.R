@@ -12,11 +12,18 @@ library(sf)
 library(terra)
 
 # Read in data ------------------------------------------------------------
+
 ## nabat covariates already aggregated for Udell et al., 2022
-nabat_covars <- st_read(
-  dsn = here("data/raw/covariates/NABat_grid_covariates/"),
-  layer = "NABat_grid_covariates"
-)
+# nabat_covars <- st_read(
+#   dsn = here("data/raw/covariates/NABat_grid_covariates/"),
+#   layer = "NABat_grid_covariates"
+# )
+
+nabat_covars <- read.csv(here("data/raw/covariates/NABat_grid_covariates/Conus_10km_covs.csv"))
+deployments <- readRDS(here("data/processed/detections/deployments_to2025.rds"))
+
+## Fix the sample unit id
+deployments$sample_unit_id[which(deployments$sample_unit_id == 96444)] <- 95444
 ## conus_grts key
 conus10k <- read_sf(here(
   "data/raw/batgrid/complete_conus_mastersample_10km_attributed.shp"
@@ -39,43 +46,44 @@ pnw <- c("Oregon", "Washington", "Idaho")
 
 ## subset and plot
 nabat_pnw <- nabat_covars %>%
-  filter(admin1 %in% pnw | admin2 %in% pnw) %>%
-  mutate(admin1 = case_when(!(admin1 %in% pnw) ~ admin2, TRUE ~ admin1))
+  filter(admin1 %in% pnw | CONUS_10KM %in% unique(deployments$sample_unit_id))
 
+deployments_spat <- deployments |> st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
 
 # Join to get CONUS -------------------------------------------------------
-
 conus_grts_key <- conus10k %>%
   select(CONUS_10KM, GRTS_ID)
 
 ## Join with conus and do some formatting
 conus_pnw_covars <- nabat_pnw %>%
   left_join(
-    as.data.frame(conus_grts_key) %>% select(-geometry),
-    by = "GRTS_ID"
-  ) %>%
-  select(
-    CONUS_10KM,
-    GRTS_ID,
-    "state" = admin1,
-    long,
-    lat,
-    karst,
-    p_forest,
-    p_wetland,
-    mean_temp,
-    precip,
-    DEM_max,
-    physio_div,
-    dist_mines,
-    riverlake,
-    geometry
-  )
+    as.data.frame(conus_grts_key),
+    by = "CONUS_10KM"
+  ) |> 
+  st_as_sf() |> 
+  st_transform(crs = 4326)
 
 ## rename to make it easier to call
 covars <- conus_pnw_covars
-plot(covars["physio_div"])
-plot(covars["state"])
+plot(covars["CONUS_10KM"], reset = FALSE)
+
+## There is an issue with SU 114921. Should be 114291.
+site <- deployments_spat[
+  deployments_spat$sample_unit_id == 114921,
+] |> 
+  st_transform(st_crs(covars))
+
+plot(
+  st_geometry(site),
+  add = TRUE,
+  col = "red",
+  pch = 16,
+  cex = 1,
+  lwd = 0.25
+)
+
+## Check again
+all(deployments$sample_unit_id %in% unique(covars$CONUS_10KM))
 # Get Cliff_Canyon ---------------------------------------------------------------
 ## Create a single layer
 landfire <- terra::merge(landfire_or, landfire_wa, landfire_id, first = T)
