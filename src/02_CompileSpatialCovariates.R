@@ -24,10 +24,16 @@ deployments <- readRDS(here("data/processed/detections/deployments_to2025.rds"))
 
 ## Fix the sample unit id
 deployments$sample_unit_id[which(deployments$sample_unit_id == 96444)] <- 95444
+
 ## conus_grts key
 conus10k <- read_sf(here(
   "data/raw/batgrid/complete_conus_mastersample_10km_attributed.shp"
 ))
+
+# LM had slightly different filename
+# conus10k <- read_sf(here(
+#   "data/raw/batgrid/conus_mastersample_10km_attributed.shp"
+# ))
 
 ##Landfire gap cover
 landfire_or <- terra::rast(here(
@@ -48,7 +54,8 @@ pnw <- c("Oregon", "Washington", "Idaho")
 nabat_pnw <- nabat_covars %>%
   filter(admin1 %in% pnw | CONUS_10KM %in% unique(deployments$sample_unit_id))
 
-deployments_spat <- deployments |> st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
+deployments_spat <- deployments %>% 
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
 
 # Join to get CONUS -------------------------------------------------------
 conus_grts_key <- conus10k %>%
@@ -58,9 +65,8 @@ conus_grts_key <- conus10k %>%
 conus_pnw_covars <- nabat_pnw %>%
   left_join(
     as.data.frame(conus_grts_key),
-    by = "CONUS_10KM"
-  ) |> 
-  st_as_sf() |> 
+    by = "CONUS_10KM") %>% 
+  st_as_sf()  %>%  
   st_transform(crs = 4326)
 
 ## rename to make it easier to call
@@ -68,6 +74,8 @@ covars <- conus_pnw_covars
 plot(covars["CONUS_10KM"], reset = FALSE)
 
 ## There is an issue with SU 114921. Should be 114291.
+all(deployments_spat$sample_unit_id %in% unique(covars$CONUS_10KM))
+
 site <- deployments_spat[
   deployments_spat$sample_unit_id == 114921,
 ] |> 
@@ -84,6 +92,7 @@ plot(
 
 ## Check again
 all(deployments$sample_unit_id %in% unique(covars$CONUS_10KM))
+
 # Get Cliff_Canyon ---------------------------------------------------------------
 ## Create a single layer
 landfire <- terra::merge(landfire_or, landfire_wa, landfire_id, first = T)
@@ -115,4 +124,5 @@ covars <- covars %>%
 
 
 # Write out the results ---------------------------------------------------
-write_sf(covars, here("data/processed/occurrence/batgrid_covars.shp"))
+# changed to .gpkg to keep column names from reformatting
+write_sf(covars, here("data/processed/occurrence/batgrid_covars.gpkg"))
