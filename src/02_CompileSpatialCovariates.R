@@ -26,14 +26,16 @@ deployments <- readRDS(here("data/processed/detections/deployments_to2025.rds"))
 deployments$sample_unit_id[which(deployments$sample_unit_id == 96444)] <- 95444
 
 ## conus_grts key
-conus10k <- read_sf(here(
-  "data/raw/batgrid/complete_conus_mastersample_10km_attributed.shp"
-))
+### Trent and Laura had diff file names.. check that they're the same, or 
+### add flexibility to load
+possible_conus_files <- c("complete_conus_mastersample_10km_attributed.shp", 
+                "conus_mastersample_10km_attributed.shp")
 
-# LM had slightly different filename
-# conus10k <- read_sf(here(
-#   "data/raw/batgrid/conus_mastersample_10km_attributed.shp"
-# ))
+file_to_use <- possible_conus_files[file.exists(
+  here::here("data/raw/batgrid",
+             possible_conus_files))][1]
+
+conus10k <- read_sf(here("data/raw/batgrid", file_to_use))
 
 ##Landfire gap cover
 landfire_or <- terra::rast(here(
