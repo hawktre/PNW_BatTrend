@@ -10,7 +10,7 @@ library(janitor)
 library(sf)
 
 # Read in the data --------------------------------------------------------
-nw_grid <- read_sf(here("data/processed/occurrence/batgrid_covars.shp")) |>
+nw_grid <- read_sf(here("data/processed/occurrence/batgrid_covars.gpkg")) %>% 
   clean_names()
 nw_nights <- readRDS(here("data/processed/detections/nw_nights.rds"))
 
@@ -35,10 +35,12 @@ samp_hist <- nw_nights %>%
   mutate(samp_all = 1)
 
 # left join to nw_grid_shp
-nw_grid <- left_join(nw_grid, samp_hist, by = "sample_unit_id") |> select(-id)
+nw_grid <- left_join(nw_grid, samp_hist, by = "sample_unit_id")
 
 #replace na with 0
-nw_grid[is.na(nw_grid)] <- 0
+# nw_grid[is.na(nw_grid)] <- 0
+nw_grid <- nw_grid %>% 
+  mutate(across(where(is.numeric), ~ replace_na(., 0)))
 
 # Format and save out -----------------------------------------
 nw_grid <- nw_grid %>%
