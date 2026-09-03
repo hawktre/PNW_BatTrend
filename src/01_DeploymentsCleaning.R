@@ -15,11 +15,16 @@ library(sf)
 library(tigris)
 
 # Read in Required Data ---------------------------------------------------
-tblDeployment <- read.csv(here("data/raw/tables/tblDeployment.csv"))
-tblPointLocation <- read.csv(here("data/raw/tables/tblPointLocation.csv"))
-tblSite <- read.csv(here("data/raw/tables/tblSite.csv"))
-tluClutter <- read.csv(here("data/raw/tables/tluClutterType.csv"))
-tluWaterBodyType <- read.csv(here("data/raw/tables/tluWaterBodyType.csv"))
+tblDeployment <- read_csv(here("data/raw/tables/tblDeployment.csv"), 
+                          show_col_types = FALSE)
+tblPointLocation <- read_csv(here("data/raw/tables/tblPointLocation.csv"), 
+                             show_col_types = FALSE)
+tblSite <- read_csv(here("data/raw/tables/tblSite.csv"),
+                    show_col_types = FALSE)
+tluClutter <- read_csv(here("data/raw/tables/tluClutterType.csv"), 
+                       show_col_types = FALSE)
+tluWaterBodyType <- read_csv(here("data/raw/tables/tluWaterBodyType.csv"), 
+                             show_col_types = FALSE)
 
 # Join all tables together ------------------------------------------------
 all_join <- left_join(
@@ -50,14 +55,10 @@ deployment <- all_join %>%
 
 
 # Make Dates ----------------------------------------
-deployment$DeploymentDate <- as_date(as_datetime(
-  deployment$DeploymentDate,
-  format = "%m/%d/%y %H:%M:%S"
-))
-deployment$RecoveryDate <- as_date(as_datetime(
-  deployment$RecoveryDate,
-  format = "%m/%d/%y %H:%M:%S"
-))
+deployment$DeploymentDate <- as_date(deployment$DeploymentDate)
+
+deployment$RecoveryDate <- as_date(deployment$RecoveryDate)
+
 deployment$year <- year(deployment$DeploymentDate)
 
 # Create State column -----------------------------------------------------
@@ -99,6 +100,7 @@ deployment <- deployment %>%
 ### Create Water Indicator
 deployment <- deployment %>%
   mutate(water_ind = if_else(WaterBodyType == "None", 0, 1))
+
 ### Correct Water Indicator NA's
 deployment <- deployment %>%
   mutate(
@@ -163,11 +165,17 @@ deployment %>%
 saveRDS(deployment, here("data/processed/detections/deployments_to2025.rds"))
 
 
-# # Save out sites for daymet -----------------------------------------------
-# daymet_sites <- deployment %>%
-#   select(location_name, deployment_date, latitude, longitude) %>%
-#   distinct() |>
-#   rename("night" = deployment_date)
-
-# ## Save out for daymet
-# write_csv(daymet_sites, here("data/raw/covariates/daymet/daymet_sites.csv"))
+# Save out sites for daymet -----------------------------------------------
+## This is done in 03_... script
+#  daymet_sites <- deployment %>%
+#    select(location_name, deployment_date, latitude, longitude) %>%
+#    distinct() %>% 
+#    rename("night" = deployment_date)
+# 
+#  ## Save out for daymet
+# daymet_filepath <- here("data/raw/covariates/daymet/daymet_sites.csv")
+# 
+# #create filepath if it doesn't exist yet
+# dir.create(dirname(daymet_filepath), recursive = TRUE, showWarnings = FALSE)
+# 
+# write_csv(daymet_sites, daymet_filepath)

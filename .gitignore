@@ -58,7 +58,6 @@ data/**/*
 *.tar.gz
 *.7z
 *.rar
-*.docx
 
 # Image files
 *.png

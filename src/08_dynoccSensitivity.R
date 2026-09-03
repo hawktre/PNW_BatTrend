@@ -1,6 +1,6 @@
 ## ---------------------------
 ## Purpose of script: Prepare detection and covariate data for dynamic
-##                    occupancy model in Stan (TV_dynocc_forward.stan).
+##                    occupancy model in Stan (dynocc_autologistic.stan).
 ##                    Outputs a species-level list of data objects and
 ##                    fits the Stan model for each species.
 ##

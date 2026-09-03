@@ -25,10 +25,12 @@ daymet <- read.csv(here("data/raw/covariates/daymet/daymet_output.csv"))
 
 # Join them --------------------------------------------------------------
 detections <- left_join(
-  detections,
-  daymet |> mutate(night = date(night)),
-  by = c("location_name", "night")
-) |>
+  detections %>% 
+    mutate(night = date(night)),
+  daymet %>% 
+    select(-c(longitude, latitude)) %>%  
+    mutate(night = date(night)),
+  by = c("location_name", "night")) %>% 
   clean_names()
 
 # Spatial Replicates ------------------------------------------------------
