@@ -28,7 +28,7 @@ library(sf)
 
 Databases are copied from the BatHub Box folders to `PNW_BatTrend/data/raw/databases`. The first script, `00_ExportTables_alt.R`, will export required tables from the databases below into the `data/raw/tables` folder.
 
-### Databases Used in Analysis
+### Databases used in analysis
 
 Adjust source script, `00_ExportTables_alt.R`, if new data exists or filenames have changed.
 
@@ -153,7 +153,7 @@ Successful run of this script will output `batgrid_covars`, saved at `data/proce
 source(here("src/03_DetectionsCleaning.R"))
 ```
 
-## Step 4. Get Daymet
+## Step 4. Get daymet
 
 | File | Function | Input Files | Output Files |
 |:-----------------|:-----------------|:-----------------|:-----------------|
@@ -314,7 +314,7 @@ data/processed/results/stan/
 source(here("src/08_dynoccSensitivity.R"))
 ```
 
-## Step 9. stan Diagnotics
+## Step 9. Stan diagnotics
 
 | File | Function | Input Files | Output Files |
 |:-----------------|:-----------------|:-----------------|:-----------------|
@@ -338,7 +338,7 @@ source(here("src/09_stanDiagnostics.R"))
 source(here("src/09a_stanDiagnostics.R"))
 ```
 
-## Step 10. stan Maps
+## Step 10. Stan maps
 
 | File | Function | Input Files | Output Files |
 |:-----------------|:-----------------|:-----------------|:-----------------|
