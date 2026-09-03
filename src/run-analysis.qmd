@@ -134,7 +134,7 @@ Requires layers to be pulled and stored in the `data/raw/` folder. See below for
 #| eval: false
 #| message: false
 
-# already run -- need to check file names
+# already run -- need to check file names - emailed Trent 9/3/26
 source(here("src/02_CompileSpatialCovariates.R"))
 ```
 
@@ -157,7 +157,7 @@ source(here("src/03_DetectionsCleaning.R"))
 
 | File | Function | Input Files | Output Files |
 |:-----------------|:-----------------|:-----------------|:-----------------|
-| [`04_get_daymet.py`](file:///src/04_get_daymet.py) | Downloads daily Daymet weather data (tmin, dayl, prcp) for surveyed sites via `pydaymet`. | `data/raw/covariates/daymet/daymet_sites.csv` | `data/raw/covariates/daymet/daymet_output.csv` |
+| [`04_get_daymet.py`](src/04_get_daymet.py) | Downloads daily Daymet weather data (tmin, dayl, prcp) for surveyed sites via `pydaymet`. | `data/raw/covariates/daymet/daymet_sites.csv` | `data/raw/covariates/daymet/daymet_output.csv` |
 
 ::: {.callout-caution icon="false"}
 Run once, from a terminal (not the R console):
