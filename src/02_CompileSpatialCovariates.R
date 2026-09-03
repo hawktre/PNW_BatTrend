@@ -24,7 +24,10 @@ deployments <- readRDS(here("data/processed/detections/deployments_to2025.rds"))
 
 ## Fix the sample unit id
 deployments$sample_unit_id[which(deployments$sample_unit_id == 96444)] <- 95444
+<<<<<<< HEAD
 
+=======
+>>>>>>> main
 ## conus_grts key
 conus10k <- read_sf(here(
   "data/raw/batgrid/complete_conus_mastersample_10km_attributed.shp"
@@ -74,8 +77,6 @@ covars <- conus_pnw_covars
 plot(covars["CONUS_10KM"], reset = FALSE)
 
 ## There is an issue with SU 114921. Should be 114291.
-all(deployments_spat$sample_unit_id %in% unique(covars$CONUS_10KM))
-
 site <- deployments_spat[
   deployments_spat$sample_unit_id == 114921,
 ] |> 

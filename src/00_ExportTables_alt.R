@@ -29,6 +29,7 @@ db_names <- tribble(
 db_names$db_locs <- paste0(rep(filepath, nrow(db_names)),
                            "/", 
                            db_names$filename)
+
 ## set output location for raw data tables
 OUT <- "data/raw/tables"
 
