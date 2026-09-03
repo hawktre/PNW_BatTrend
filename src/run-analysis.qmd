@@ -20,18 +20,22 @@ library(sf)
 
 # PNW Bat Trend Analysis
 
-## Extract tables
+## Step 0. Extract tables
 
-Databases are copied from the BatHub Box folders to `PNW_BatTrend/data/raw/databases`. The first script, `00_ExportTables_alt.R`, will export required tables from the databases below into the `data/raw/tables` folder. 
+| File | Function | Input Files | Output Files |
+|:-----------------|:-----------------|:-----------------|:-----------------|
+| [`00_ExportTables_alt.R`](src/00_ExportTables_alt.R) | Extracts database tables from MS Access (`.accdb`) to CSV using `RODBC`. | `data/raw/database/*.accdb` | `data/raw/tables/*.csv` |
+
+Databases are copied from the BatHub Box folders to `PNW_BatTrend/data/raw/databases`. The first script, `00_ExportTables_alt.R`, will export required tables from the databases below into the `data/raw/tables` folder.
 
 ### Databases Used in Analysis
 
-Adjust source script, `00_ExportTables_alt.R`, if new data exists or filenames have changed. 
+Adjust source script, `00_ExportTables_alt.R`, if new data exists or filenames have changed.
 
 | Database File | Purpose / Coverage | Date Last Modified |
-|---------------|-------------------|------|
+|-------------------------|-------------------------------|----------------|
 | `PNW_BatHub_Database_20260414.accdb` | Main BatHub database containing survey, site, and metadata records. | 8/26/2026 |
-| `PNW_BatHub_Database_AcousticOutput_2016-2023.accdb` | Acoustic processing outputs for monitoring data collected from 2016-2023. |2/4/2026 |
+| `PNW_BatHub_Database_AcousticOutput_2016-2023.accdb` | Acoustic processing outputs for monitoring data collected from 2016-2023. | 2/4/2026 |
 | `PNW_BatHub_Database_AcousticOutput_2024.accdb` | Acoustic processing outputs for 2024 monitoring data. | 4/13/2026 |
 | `PNW_BatHub_Database_AcousticOutput_2025.accdb` | Acoustic processing outputs for 2025 monitoring data. | 4/13/2026 |
 | `PNW_BatHub_Database_AcousticOutput_Idaho_2025.accdb` | Acoustic processing outputs for Idaho 2025 monitoring data. | 8/26/2026 |
@@ -39,10 +43,16 @@ Adjust source script, `00_ExportTables_alt.R`, if new data exists or filenames h
 ```{r}
 #| label: run00
 #| eval: false
+
+# already ran and exported tables
 source(here("src/00_ExportTables_alt.R"))
 ```
 
-## Clean deployments
+## Step 1. Clean deployments
+
+| File | Function | Input Files | Output Files |
+|:-----------------|:-----------------|:-----------------|:-----------------|
+| [`01_DeploymentsCleaning.R`](src/01_DeploymentsCleaning.R) | Cleans acoustic detector deployment records, extracts metadata, and exports surveyed locations. | `data/raw/tables/` (`tblDeployment.csv`, `tblPointLocation.csv`, `tblSite.csv`, `tluClutterType.csv`, `tluWaterBodyType.csv`) | `data/processed/detections/deployments_to2025.rds`, `data/raw/covariates/daymet/daymet_sites.csv` |
 
 ```{r}
 #| label: run01
@@ -62,7 +72,7 @@ missing_sites <- read_csv(here("data/processed/detections/sites_missing_covars.c
                                show_col_types = FALSE)
 ```
 
-Missing data were saved at `data/processed/detections/sites_missing_covars.csv`. 
+Missing data were saved at `data/processed/detections/sites_missing_covars.csv`.
 
 ```{r}
 #| label: fig-missing-covars
@@ -73,7 +83,10 @@ missing_sites %>%
   st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326) %>%
   ggplot() +
   geom_sf(data = states_map, fill = "gray90", color = "black") +
-  geom_sf(aes(color = factor(year)))
+  geom_sf(aes(color = factor(year)), alpha = 0.5) + 
+  labs(color = "Year") +
+  theme_bw() + 
+  theme(panel.grid = element_blank())
 
 ```
 
@@ -88,37 +101,50 @@ deployment %>%
   st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>%
   ggplot() +
   geom_sf(data = states_map, fill = "gray90", color = "black") +
-  geom_sf(aes(color = state)) +
+  geom_sf(aes(color = state), alpha = 0.5) +
   facet_wrap(~year) +
-  theme_minimal() +
-  theme(legend.position = "bottom") +
-  labs(color = "State")
+  labs(color = "State") +
+  theme_bw() +
+  theme(legend.position = "bottom", 
+        panel.grid = element_blank(),
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks = element_blank()) 
 ```
 
-## Compile spatial covariates
+## Step 2. Compile spatial covariates
 
-Requires layers to be pulled and stored in the `data/raw/` folder. See below for required files. 
+Requires layers to be pulled and stored in the `data/raw/` folder. See below for required files.
 
-| Variable     | Local File Path                                                | Download Date | Source                                   |
-|--------------|-------------------------------------------------------------------------|---------------|------------------------------------------|
-| nabat_covars | covariates/NABat_grid_covariates/                              | *still needed*| *source link*                            |
-| conus10k     | batgrid/complete_conus_mastersample_10km_attributed.shp        | *still needed*| *source link*                            |
-| landfire_or  | covariates/LandFire/LF2022_OR/LC22_EVT_230.tif                 | 2026-08-19    | [landfire](https://www.landfire.gov/vegetation/evt)  |
-| landfire_wa  | covariates/LandFire/LF2022_WA/LC22_EVT_230.tif                 | 2026-08-19    | [landfire](https://www.landfire.gov/vegetation/evt)  |
-| landfire_id  | covariates/LandFire/LF2022_ID/LC22_EVT_230.tif                 | 2026-08-19    |[landfire](https://www.landfire.gov/vegetation/evt) |
+| File | Function | Input Files | Output Files |
+|:-----------------|:-----------------|:-----------------|:-----------------|
+| [`02_CompileSpatialCovariates.R`](src/02_CompileSpatialCovariates.R) | Extracts and aggregates spatial covariates (forest cover, karst, cliff/canyon, elevation, precipitation) for the NABat 10km grid. | `data/raw/covariates/`, `data/raw/batgrid/` | `data/processed/occurrence/batgrid_covars.shp` |
+
+| Variable | Local File Path | Download Date | Source |
+|-------------|------------------------------|-------------|----------------|
+| nabat_covars | covariates/NABat_grid_covariates/ | 2026-08-31 | [2025 North American Bat Monitoring Program Knitted Grid and Multi-scale Grid Covariates](https://www.sciencebase.gov/catalog/item/67eafce2d34ed02007f83722) |
+| conus10k | batgrid/conus_mastersample_10km_attributed.shp | 2026-08-31 | [2018 Grid-Based Sampling Frame](https://www.sciencebase.gov/catalog/item/5b7b563ae4b0f5d57884615b) |
+| landfire_or | covariates/LandFire/LF2022_OR/LC22_EVT_230.tif | 2026-08-19 | [landfire](https://www.landfire.gov/vegetation/evt) |
+| landfire_wa | covariates/LandFire/LF2022_WA/LC22_EVT_230.tif | 2026-08-19 | [landfire](https://www.landfire.gov/vegetation/evt) |
+| landfire_id | covariates/LandFire/LF2022_ID/LC22_EVT_230.tif | 2026-08-19 | [landfire](https://www.landfire.gov/vegetation/evt) |
 
 ```{r}
 #| label: run02
 #| warning: false
 #| eval: false
+#| message: false
 
-# don't currently have all files
+# already run -- need to check file names
 source(here("src/02_CompileSpatialCovariates.R"))
 ```
 
-Successful run of this script will output `batgrid_covars`, saved at `data/processed/occurrence/batgrid_covars.shp`
+Successful run of this script will output `batgrid_covars`, saved at `data/processed/occurrence/batgrid_covars.shp`.
 
-## Clean detections
+## Step 3. Clean detections
+
+| File | Function | Input Files | Output Files |
+|:-----------------|:-----------------|:-----------------|:-----------------|
+| [`03_DetectionsCleaning.R`](src/03_DetectionsCleaning.R) | Cleans and harmonizes species call identifications across all acoustic output CSVs (2016–2025). | `data/processed/detections/deployments_to2025.rds`, `data/raw/tables/calls_*.csv` | `data/processed/detections/detection_histories.rds` |
 
 ```{r}
 #| label: run03
@@ -127,29 +153,36 @@ Successful run of this script will output `batgrid_covars`, saved at `data/proce
 source(here("src/03_DetectionsCleaning.R"))
 ```
 
-# Get Daymet
+## Step 4. Get Daymet
 
-**Fetches Daymet climate data → writes to `data/daymet/`**
+| File | Function | Input Files | Output Files |
+|:-----------------|:-----------------|:-----------------|:-----------------|
+| [`04_get_daymet.py`](file:///src/04_get_daymet.py) | Downloads daily Daymet weather data (tmin, dayl, prcp) for surveyed sites via `pydaymet`. | `data/raw/covariates/daymet/daymet_sites.csv` | `data/raw/covariates/daymet/daymet_output.csv` |
 
+::: {.callout-caution icon="false"}
 Run once, from a terminal (not the R console):
 
 Requires `pandas` and `pydaymet` installed for whatever `python` resolves to on your system.
 
-```
+```         
 python -m pip install pandas
 ```
 
-```
+```         
 python -m pip install pydaymet
 ```
 
-```
+```         
 python src/04_get_daymet.py
 ```
+:::
 
-## Prepare data for modeling
+## Step 5. Prepare data for modeling
 
-Data are saved to `data/processed/nw_nights.rds`
+| File | Function | Input Files | Output Files |
+|:-----------------|:-----------------|:-----------------|:-----------------|
+| [`05_detections_modprep.R`](src/05_detections_modprep.R) | Merges cleaned species detections with climate covariates and formats nightly survey replicates. | `data/processed/detections/detection_histories.rds`, `data/raw/covariates/daymet/daymet_output.csv` | `data/processed/detections/nw_nights.rds` |
+
 ```{r}
 #| label: run05
 #| warning: false
@@ -169,7 +202,11 @@ ggplot(spatial_reps_summary, aes(x = spatial_reps)) +
     theme_bw() + theme(panel.grid = element_blank())
 ```
 
-## Prepare covariate data for occupancy model
+## Step 6. Prepare covariate data for occupancy model
+
+| File | Function | Input Files | Output Files |
+|:-----------------|:-----------------|:-----------------|:-----------------|
+| [`06_occurrence_modprep.R`](src/06_occurrence_modprep.R) | Finalizes grid-level occurrence covariate tables and joins historical survey status. | `data/processed/occurrence/batgrid_covars.shp`, `data/processed/detections/nw_nights.rds` | `data/processed/occurrence/nw_grid.rds` |
 
 ```{r}
 #| label: run06
@@ -180,9 +217,31 @@ ggplot(spatial_reps_summary, aes(x = spatial_reps)) +
 source(here("src/06_occurrence_modprep.R"))
 ```
 
-## Prepare data for dynamic occupancy model in Stan
+## Step 7. Dynamic occupancy modeling
 
-Are we using both autolog? and Mod?
+| File | Function | Input Files | Output Files |
+|:-----------------|:-----------------|:-----------------|:-----------------|
+| [`07_dynocc_autolog.R`](src/07_dynocc_autolog.R) | Formats Stan data matrices and fits multi-species autologistic dynamic occupancy models across priors. | `data/processed/occurrence/nw_grid.rds`, `data/processed/detections/nw_nights.rds` | `data/processed/results/stan/stan_data_*.rds`, `design_matrices.rds`, `index_keys.rds`, fits in `data/processed/results/stan/fits/` |
+| [`07_dynoccMod.R`](src/07_dynoccMod.R) | Formats Stan data matrices and fits multi-species autologistic dynamic occupancy models across priors. | `data/processed/occurrence/nw_grid.rds`, `data/processed/detections/nw_nights.rds` | `data/processed/results/stan/stan_data_*.rds`, `design_matrices.rds`, `index_keys.rds`, fits in `data/processed/results/stan/full/fits/` |
+| [`dynocc_forward.stan`](src/dynocc_autologistic.stan) |  | N/A (Compiled by `cmdstanr`) | N/A |
+| [`dynocc_autologistic.stan`](src/dynocc_autologistic.stan) | Stan model file implementing a first-order autologistic dynamic occupancy model with time-varying survival ($\phi_t$), colonization ($\gamma_t$), and logit-linear detection and initial occurrence covariates. | N/A (Compiled by `cmdstanr`) | N/A |
+
+### Step 7a. Prepare data for dynamic occupancy model in Stan
+
+Prepare detection and covariate data for dynamic occupancy model in Stan (**`dynocc_autologistic.stan`**). Outputs a species-level list of data objects and fits the Stan model for each species. The script produces the following outputs:
+
+``` text
+data/processed/results/stan/
+├── stan_data_weakly_informative.rds
+├── design_matrices.rds
+├── index_keys.rds
+└── fits/
+    ├── laci_stanfit_weakly_informative.rds
+    ├── lano_stanfit_weakly_informative.rds
+    ├── myev_stanfit_weakly_informative.rds
+    ├── ...
+    └── coto_stanfit_weakly_informative.rds
+```
 
 ```{r}
 #| label: run07a
@@ -193,9 +252,28 @@ Are we using both autolog? and Mod?
 source(here("src/07_dynocc_autolog.R"))
 ```
 
-## Prepare data for dynamic occupancy model in Stan
+### Step 7b. Prepare data for dynamic occupancy model in Stan
 
-Are we using both autolog? and Mod?
+**Potentially an older version?** Prepare detection and covariate data for dynamic occupancy model in Stan (**`TV_dynocc_forward.stan`**). Outputs a species-level list of data objects and fits the Stan model for each species. The script produces the following outputs:
+
+``` text
+data/processed/results/stan/
+├── stan_data_weakly_informative.rds
+├── stan_data_weakly_informative_spatial.rds
+├── design_matrices.rds
+├── index_keys.rds
+└── full/
+  └── fits/
+    ├── laci_stanfit_weakly_informative.rds
+    ├── lano_stanfit_weakly_informative.rds
+    ├── myev_stanfit_weakly_informative.rds
+    ├── ...
+    └── coto_stanfit_weakly_informative.rds
+```
+
+::: {.callout-caution icon="false"}
+The `stan_data_weakly_informative.rds` overwrites the same file created in Step 7a. The files contain slightly different information.
+:::
 
 ```{r}
 #| label: run07b
@@ -206,7 +284,26 @@ Are we using both autolog? and Mod?
 source(here("src/07_dynoccMod.R"))
 ```
 
-## Check sensitivity of model?
+## Step 8. Check sensitivity of model?
+
+| File | Function | Input Files | Output Files |
+|:-----------------|:-----------------|:-----------------|:-----------------|
+| [`08_dynoccSensitivity.R`](src/08_dynoccSensitivity.R) | Runs sensitivity analysis by fitting models excluding Idaho survey data. | `data/processed/occurrence/nw_grid.rds`, `data/processed/detections/nw_nights.rds` | Sensitivity design matrices and fits in `data/processed/results/stan/fits/` |
+
+Prepare detection and covariate data for dynamic occupancy model in Stan (`dynocc_autologistic.stan`). Outputs a species-level list of data objects and fits the Stan model for each species. Importantly, this performs a sensitivity analysis by excluding Idaho and saved all output with a `_sensitivity` suffix. The script produces the following outputs:
+
+``` text
+data/processed/results/stan/
+├── stan_data_weakly_informative_sensitivity.rds
+├── design_matrices_sensitivity.rds
+├── index_keys_sensitivity.rds
+└── fits/
+    ├── laci_stanfit_weakly_informative_sensitivity.rds
+    ├── lano_stanfit_weakly_informative_sensitivity.rds
+    ├── myev_stanfit_weakly_informative_sensitivity.rds
+    ├── ...
+    └── coto_stanfit_weakly_informative_sensitivity.rds
+```
 
 ```{r}
 #| label: run08
@@ -217,7 +314,11 @@ source(here("src/07_dynoccMod.R"))
 source(here("src/08_dynoccSensitivity.R"))
 ```
 
-## stan Diagnotics
+## Step 9. stan Diagnotics
+
+| File | Function | Input Files | Output Files |
+|:-----------------|:-----------------|:-----------------|:-----------------|
+| [`09_stanDiagnostics.R`](src/09_stanDiagnostics.R) | Evaluates MCMC convergence, computes posterior predictive checks, calculates Moran's I correlograms (10–50 km), estimates regional occupancy trajectories/slopes, and outputs multi-species and individual species figures. | Stan fits in `data/processed/results/stan/fits/` | Diagnostic tables (`all_res_stan.rds`, `trend_full_stan.rds`, etc.) and plots in `data/processed/results/stan/diagnostics/` |
 
 ```{r}
 #| label: run09
@@ -228,7 +329,20 @@ source(here("src/08_dynoccSensitivity.R"))
 source(here("src/09_stanDiagnostics.R"))
 ```
 
-## stan Maps
+```{r}
+#| label: run09a
+#| warning: false
+#| eval: false
+
+# don't have data yet
+source(here("src/09a_stanDiagnostics.R"))
+```
+
+## Step 10. stan Maps
+
+| File | Function | Input Files | Output Files |
+|:-----------------|:-----------------|:-----------------|:-----------------|
+| [`10_stanMaps.R`](src/10_stanMaps.R) | Projects posterior parameter distributions across the Northwest grid to create regional occupancy prediction maps and uncertainty plots. | Stan fits in `data/processed/results/stan/fits/`, `nw_grid.rds` | Spatial prediction maps in `data/processed/results/stan/maps/` |
 
 ```{r}
 #| label: run10
